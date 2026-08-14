@@ -14,12 +14,11 @@ Registro somente do que ajuda a continuidade do projeto.
 **ETAPA 1 (Banco, Auth e Multi-tenant) foi CONCLUÍDA com sucesso.** (Relatório: `docs/relatorios/etapa-01.md`)
 **ETAPA 2 (Message Gateway) foi CONCLUÍDA com sucesso.** (Relatório: `docs/relatorios/etapa-02.md`)
 **ETAPA 3 (WhatsApp ida e volta) foi CONCLUÍDA com sucesso.** (Relatório: `docs/relatorios/etapa-03.md`)
+**ETAPA 4 (Conversation Engine + IA) foi CONCLUÍDA com sucesso.** (Relatório: `docs/relatorios/etapa-04.md`)
 
-- Migrations versionadas: `20260814000001_initial_schema.sql` e `20260814000002_multi_tenant_rls.sql`.
-- 19 tabelas no schema oficial cobrindo CRM, Mensageria, Follow-up, IA, Imóveis e Auditoria.
-- Row Level Security (RLS) e funções de autorização PostgreSQL implementadas.
-- `@nexora/database` com repositórios tipados (`LeadRepository`, `MessageRepository`, `TenantRepository`), proteção em runtime com `assertTenantContext()` e constraint de idempotência (`uq_message_idempotency`).
-- 23 testes automatizados (Vitest) passando 100%, comprovando isolamento total entre tenants, hierarquia de roles (RBAC) e proteção contra duplicação.
+- Motor de IA com 4 módulos desacoplados: `IntentClassifier` (13 intenções), `StructuredExtractor` (extração factual sem alucinação), `NextActionPolicy` (priorização anti-interrogatório) e `ResponseGenerator` (guardrails estritos).
+- Human takeover automático para pedidos de atendimento, reclamações e negociações de valores.
+- 50 testes automatizados passando 100% incluindo o dataset obrigatório completo de 14 cenários da Seção 57.
 
 Fases concluídas:
 
@@ -28,12 +27,13 @@ FASE 0 — Repositório e fundação [CONCLUÍDA]
 FASE 1 — Banco / Auth / Multi-tenant [CONCLUÍDA]
 FASE 2 — Message Gateway [CONCLUÍDA]
 FASE 3 — WhatsApp ida e volta [CONCLUÍDA]
+FASE 4 — Conversation Engine + IA [CONCLUÍDA]
 ```
 
 Próxima fase (aguardando autorização):
 
 ```text
-FASE 4 — Conversation Engine + IA
+FASE 5 — CRM interno
 ```
 
 ---

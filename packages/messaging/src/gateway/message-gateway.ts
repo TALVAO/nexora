@@ -19,6 +19,7 @@ import {
   type ConversationRow,
   type MessageRow,
 } from "@nexora/database";
+import { ConversationEngine, type GeneratedResponse } from "@nexora/ai";
 
 export interface ProcessedInboundResult {
   isDuplicate: boolean;
@@ -26,6 +27,8 @@ export interface ProcessedInboundResult {
   conversation: ConversationRow;
   message: MessageRow;
   automationMode: AutomationMode;
+  aiResponse?: GeneratedResponse;
+  outboundMessage?: MessageRow;
 }
 
 export interface SendOutboundInput {
@@ -45,9 +48,14 @@ export interface SendOutboundResult {
 export class MessageGateway {
   private providers: Map<string, MessagingProvider> = new Map();
   private messageRepo: MessageRepository;
+  private conversationEngine: ConversationEngine;
 
-  constructor(dependencies?: { messageRepo?: MessageRepository }) {
+  constructor(dependencies?: {
+    messageRepo?: MessageRepository;
+    conversationEngine?: ConversationEngine;
+  }) {
     this.messageRepo = dependencies?.messageRepo || new MessageRepository();
+    this.conversationEngine = dependencies?.conversationEngine || new ConversationEngine();
 
     // Register standard providers
     this.registerProvider("WHATSAPP", "evolution", new EvolutionWhatsAppProvider());
@@ -129,12 +137,150 @@ export class MessageGateway {
       [normalized.timestamp, conversation.id, ctx.tenantId],
     );
 
+    let aiResponse: GeneratedResponse | undefined;
+    let outboundMessage: MessageRow | undefined;
+    let currentMode = lead.automation_mode;
+
+    // 5. Conversation Engine + IA Processing
+    if (lead.automation_mode === "AI" && normalized.direction === "INBOUND" && normalized.text) {
+      const aiResult = this.conversationEngine.processMessage({
+        tenantId: ctx.tenantId,
+        leadId: lead.id,
+        conversationId: conversation.id,
+        lastMessageText: normalized.text,
+      });
+
+      aiResponse = aiResult.response;
+
+      // Audit log in PostgreSQL ai_runs
+      await query(
+        `
+        INSERT INTO ai_runs (
+          tenant_id,
+          lead_id,
+          conversation_id,
+          purpose,
+          provider,
+          model,
+          input_tokens,
+          output_tokens,
+          latency_ms,
+          confidence,
+          result_json
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);
+      `,
+        [
+          ctx.tenantId,
+          lead.id,
+          conversation.id,
+          "CONVERSATION_TURN",
+          "rule_engine_v1",
+          aiResult.aiRun.model,
+          aiResult.aiRun.promptTokens,
+          aiResult.aiRun.completionTokens,
+          aiResult.aiRun.latencyMs,
+          aiResult.aiRun.confidence,
+          JSON.stringify({
+            intent: aiResponse.intent,
+            extracted: aiResponse.extractedProfile,
+            decision: aiResponse.nextAction,
+          }),
+        ],
+      );
+
+      // Handle Handoff or Opt-Out
+      if (aiResponse.shouldHandoff) {
+        currentMode = "HUMAN";
+        await query(
+          `UPDATE leads SET automation_mode = 'HUMAN', updated_at = now() WHERE id = $1 AND tenant_id = $2;`,
+          [lead.id, ctx.tenantId],
+        );
+        await query(
+          `UPDATE conversations SET automation_mode = 'HUMAN', updated_at = now() WHERE id = $1 AND tenant_id = $2;`,
+          [conversation.id, ctx.tenantId],
+        );
+      } else if (aiResponse.intent === "STOP_MESSAGES") {
+        currentMode = "HUMAN";
+        await query(
+          `UPDATE leads SET automation_mode = 'HUMAN', stage = 'LOST', lost_reason = 'Opt-out solicitado pelo cliente', updated_at = now() WHERE id = $1 AND tenant_id = $2;`,
+          [lead.id, ctx.tenantId],
+        );
+      }
+
+      // Update lead intent and lead_profiles facts
+      if (aiResponse.intent) {
+        await query(
+          `UPDATE leads SET intent = $1, updated_at = now() WHERE id = $2 AND tenant_id = $3;`,
+          [aiResponse.intent, lead.id, ctx.tenantId],
+        );
+      }
+
+      const p = aiResponse.extractedProfile;
+      await query(
+        `
+        INSERT INTO lead_profiles (
+          tenant_id,
+          lead_id,
+          transaction_type,
+          property_type,
+          city,
+          neighborhoods,
+          max_budget,
+          bedrooms,
+          parking_spaces,
+          pet_required,
+          rental_guarantee,
+          structured_preferences_json
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        ON CONFLICT (tenant_id, lead_id) DO UPDATE SET
+          transaction_type = COALESCE(EXCLUDED.transaction_type, lead_profiles.transaction_type),
+          property_type = COALESCE(EXCLUDED.property_type, lead_profiles.property_type),
+          city = COALESCE(EXCLUDED.city, lead_profiles.city),
+          neighborhoods = CASE WHEN array_length(EXCLUDED.neighborhoods, 1) > 0 THEN EXCLUDED.neighborhoods ELSE lead_profiles.neighborhoods END,
+          max_budget = COALESCE(EXCLUDED.max_budget, lead_profiles.max_budget),
+          bedrooms = COALESCE(EXCLUDED.bedrooms, lead_profiles.bedrooms),
+          parking_spaces = COALESCE(EXCLUDED.parking_spaces, lead_profiles.parking_spaces),
+          pet_required = COALESCE(EXCLUDED.pet_required, lead_profiles.pet_required),
+          rental_guarantee = COALESCE(EXCLUDED.rental_guarantee, lead_profiles.rental_guarantee),
+          structured_preferences_json = EXCLUDED.structured_preferences_json,
+          updated_at = now();
+      `,
+        [
+          ctx.tenantId,
+          lead.id,
+          p.transactionType || null,
+          p.propertyType || null,
+          p.city || null,
+          p.neighborhoods && p.neighborhoods.length > 0 ? p.neighborhoods : [],
+          p.maxBudget || null,
+          p.bedrooms || null,
+          p.parkingSpaces || null,
+          p.hasPet || null,
+          p.rentalGuarantee || null,
+          JSON.stringify(p),
+        ],
+      );
+
+      // Auto-send response message
+      if (aiResponse.text) {
+        const sendRes = await this.sendOutbound(ctx, conversation.id, {
+          text: aiResponse.text,
+          senderType: "AI",
+        });
+        if (sendRes.success) {
+          outboundMessage = sendRes.message;
+        }
+      }
+    }
+
     return {
       isDuplicate: false,
       lead,
       conversation,
       message,
-      automationMode: lead.automation_mode,
+      automationMode: currentMode,
+      aiResponse,
+      outboundMessage,
     };
   }
 
