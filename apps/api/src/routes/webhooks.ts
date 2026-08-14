@@ -40,7 +40,7 @@ export const webhookRoutes: FastifyPluginAsync<WebhookPluginOptions> = async (fa
     },
   );
 
-  // Inbound WhatsApp Message (Evolution API, Meta Cloud, Mock)
+  // Inbound WhatsApp Message / Status Update (Evolution API, Meta Cloud, Mock)
   fastify.post(
     "/webhooks/whatsapp/:provider",
     async (
@@ -58,7 +58,34 @@ export const webhookRoutes: FastifyPluginAsync<WebhookPluginOptions> = async (fa
         process.env.DEFAULT_TENANT_ID ||
         "a0000000-0000-0000-0000-000000000001";
 
+      const body = request.body as Record<string, unknown>;
+
       try {
+        // Check if payload is a status update event (e.g. messages.update in Evolution API)
+        const isStatusUpdate =
+          body?.event === "messages.update" ||
+          body?.event === "message.update" ||
+          (Array.isArray((body?.entry as unknown[])?.[0]) && false);
+
+        if (isStatusUpdate) {
+          const prov = gateway.getProvider("WHATSAPP", provider);
+          const delivery = prov.getDeliveryStatus(body);
+          if (delivery.externalMessageId && delivery.externalMessageId !== "unknown") {
+            await gateway.updateDeliveryStatus(
+              { tenantId },
+              delivery.externalMessageId,
+              delivery.status,
+            );
+          }
+
+          return reply.status(200).send({
+            success: true,
+            statusUpdated: true,
+            status: delivery.status,
+            externalMessageId: delivery.externalMessageId,
+          });
+        }
+
         const normalized = gateway.normalizeInbound("WHATSAPP", provider, request.body, tenantId);
 
         const result = await gateway.processInbound({ tenantId }, normalized);

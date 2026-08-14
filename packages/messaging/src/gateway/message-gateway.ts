@@ -1,5 +1,11 @@
 import type { Channel, AutomationMode } from "@nexora/shared";
-import type { MessagingProvider, NormalizedMessage } from "../types.js";
+import type {
+  MessagingProvider,
+  NormalizedMessage,
+  SendResult,
+  DeliveryStatus,
+  MessageType,
+} from "../types.js";
 import { EvolutionWhatsAppProvider } from "../providers/evolution.provider.js";
 import { MetaWhatsAppCloudProvider } from "../providers/meta-cloud.provider.js";
 import { InstagramMessagingProvider } from "../providers/instagram.provider.js";
@@ -20,6 +26,20 @@ export interface ProcessedInboundResult {
   conversation: ConversationRow;
   message: MessageRow;
   automationMode: AutomationMode;
+}
+
+export interface SendOutboundInput {
+  text?: string;
+  mediaUrl?: string;
+  type?: MessageType;
+  caption?: string;
+  senderType?: "USER" | "AI" | "SYSTEM";
+}
+
+export interface SendOutboundResult {
+  success: boolean;
+  message?: MessageRow;
+  error?: string;
 }
 
 export class MessageGateway {
@@ -116,6 +136,117 @@ export class MessageGateway {
       message,
       automationMode: lead.automation_mode,
     };
+  }
+
+  async sendOutbound(
+    ctx: TenantContext,
+    conversationId: string,
+    input: SendOutboundInput,
+  ): Promise<SendOutboundResult> {
+    assertTenantContext(ctx);
+
+    // 1. Find Conversation & Lead
+    const convRes = await query<ConversationRow>(
+      `SELECT * FROM conversations WHERE id = $1 AND tenant_id = $2 LIMIT 1;`,
+      [conversationId, ctx.tenantId],
+    );
+    const conversation = convRes.rows[0];
+    if (!conversation) {
+      return { success: false, error: "Conversa não encontrada para este tenant." };
+    }
+
+    const leadRes = await query<LeadRow>(
+      `SELECT * FROM leads WHERE id = $1 AND tenant_id = $2 LIMIT 1;`,
+      [conversation.lead_id, ctx.tenantId],
+    );
+    const lead = leadRes.rows[0];
+    if (!lead) {
+      return { success: false, error: "Lead não encontrado para esta conversa." };
+    }
+
+    const recipient = lead.phone || conversation.external_conversation_id || "";
+    if (!recipient) {
+      return { success: false, error: "Destinatário inválido ou telefone ausente." };
+    }
+
+    // 2. Dispatch to Channel Provider
+    const provider = this.getProvider(conversation.channel, conversation.provider);
+    let sendResult: SendResult;
+
+    if (input.mediaUrl) {
+      sendResult = await provider.sendMedia({
+        tenantId: ctx.tenantId,
+        to: recipient,
+        mediaUrl: input.mediaUrl,
+        type: (input.type?.toLowerCase() as "image" | "audio" | "video" | "document") || "image",
+        caption: input.caption || input.text,
+      });
+    } else {
+      sendResult = await provider.sendText({
+        tenantId: ctx.tenantId,
+        to: recipient,
+        text: input.text || "",
+      });
+    }
+
+    if (!sendResult.success) {
+      return {
+        success: false,
+        error: sendResult.error || "Falha ao enviar mensagem pelo provedor.",
+      };
+    }
+
+    // 3. Persist Outbound Message
+    const externalMessageId = sendResult.externalMessageId || `out_${Date.now()}`;
+    const { message } = await this.messageRepo.create(ctx, {
+      conversation_id: conversation.id,
+      lead_id: lead.id,
+      external_message_id: externalMessageId,
+      direction: "OUTBOUND",
+      sender_type: input.senderType || "USER",
+      message_type: input.type || (input.mediaUrl ? "IMAGE" : "TEXT"),
+      text: input.text,
+      media_url: input.mediaUrl,
+      provider_status: "SENT",
+    });
+
+    // 4. Update Timestamps
+    const now = new Date().toISOString();
+    await query(
+      `UPDATE leads SET last_outbound_at = $1, updated_at = $1 WHERE id = $2 AND tenant_id = $3;`,
+      [now, lead.id, ctx.tenantId],
+    );
+    await query(
+      `UPDATE conversations SET last_message_at = $1, updated_at = $1 WHERE id = $2 AND tenant_id = $3;`,
+      [now, conversation.id, ctx.tenantId],
+    );
+
+    return {
+      success: true,
+      message,
+    };
+  }
+
+  async updateDeliveryStatus(
+    ctx: TenantContext,
+    externalMessageId: string,
+    status: DeliveryStatus["status"],
+  ): Promise<boolean> {
+    assertTenantContext(ctx);
+
+    const now = new Date().toISOString();
+    let timestampField = "";
+    if (status === "DELIVERED") timestampField = ", delivered_at = $3";
+    if (status === "READ") timestampField = ", read_at = $3";
+
+    const sql = `
+      UPDATE messages
+      SET provider_status = $1 ${timestampField}
+      WHERE tenant_id = $2 AND external_message_id = $3;
+    `;
+
+    const result = await query(sql, [status, ctx.tenantId, externalMessageId, now]);
+    return (result.rowCount ?? 0) > 0;
   }
 
   private async resolveOrCreateLead(

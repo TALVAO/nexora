@@ -4,10 +4,14 @@ import helmet from "@fastify/helmet";
 import sensible from "@fastify/sensible";
 import { healthRoutes } from "./routes/health.js";
 import { webhookRoutes, type WebhookPluginOptions } from "./routes/webhooks.js";
-import type { MessageGateway } from "@nexora/messaging";
+import { conversationRoutes, type ConversationPluginOptions } from "./routes/conversations.js";
+import type { MessageGateway, EvolutionWhatsAppProvider } from "@nexora/messaging";
+import type { MessageRepository } from "@nexora/database";
 
 export interface AppOptions {
   gateway?: MessageGateway;
+  messageRepo?: MessageRepository;
+  evolutionProvider?: EvolutionWhatsAppProvider;
 }
 
 export async function buildApp(options?: AppOptions): Promise<FastifyInstance> {
@@ -41,6 +45,11 @@ export async function buildApp(options?: AppOptions): Promise<FastifyInstance> {
   await app.register(webhookRoutes, {
     gateway: options?.gateway,
   } as WebhookPluginOptions);
+  await app.register(conversationRoutes, {
+    gateway: options?.gateway,
+    messageRepo: options?.messageRepo,
+    evolutionProvider: options?.evolutionProvider,
+  } as ConversationPluginOptions);
 
   return app;
 }

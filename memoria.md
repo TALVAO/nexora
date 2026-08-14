@@ -13,6 +13,7 @@ Registro somente do que ajuda a continuidade do projeto.
 **ETAPA 0 (Repositório e fundação) foi CONCLUÍDA com sucesso.** (Relatório: `docs/relatorios/etapa-00.md`)
 **ETAPA 1 (Banco, Auth e Multi-tenant) foi CONCLUÍDA com sucesso.** (Relatório: `docs/relatorios/etapa-01.md`)
 **ETAPA 2 (Message Gateway) foi CONCLUÍDA com sucesso.** (Relatório: `docs/relatorios/etapa-02.md`)
+**ETAPA 3 (WhatsApp ida e volta) foi CONCLUÍDA com sucesso.** (Relatório: `docs/relatorios/etapa-03.md`)
 
 - Migrations versionadas: `20260814000001_initial_schema.sql` e `20260814000002_multi_tenant_rls.sql`.
 - 19 tabelas no schema oficial cobrindo CRM, Mensageria, Follow-up, IA, Imóveis e Auditoria.
@@ -26,12 +27,13 @@ Fases concluídas:
 FASE 0 — Repositório e fundação [CONCLUÍDA]
 FASE 1 — Banco / Auth / Multi-tenant [CONCLUÍDA]
 FASE 2 — Message Gateway [CONCLUÍDA]
+FASE 3 — WhatsApp ida e volta [CONCLUÍDA]
 ```
 
 Próxima fase (aguardando autorização):
 
 ```text
-FASE 3 — WhatsApp ida e volta
+FASE 4 — Conversation Engine + IA
 ```
 
 ---
