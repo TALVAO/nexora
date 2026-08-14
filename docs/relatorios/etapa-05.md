@@ -1,11 +1,13 @@
 # Mini-relatório — Etapa 5: CRM Interno
 
 ## Status
+
 **CONCLUÍDA**
 
 ---
 
 ## Objetivo da Etapa
+
 Construir a interface visual e os serviços de API do CRM operacional interno, permitindo que o corretor e a equipe comercial administrem os leads do funil nos 10 estágios canônicos, visualizem o painel Lead 360 com fatos qualificados, executem human takeover com um clique, conversem em tempo real via WhatsApp e registrem notas e atividades sem depender de consoles técnicos ou planilhas.
 
 ---
@@ -35,24 +37,25 @@ Construir a interface visual e os serviços de API do CRM operacional interno, p
 
 ## Testes Executados
 
-| Suite de Testes | Quantidade | Resultado |
-|---|---|---|
-| `leads.test.ts` (API) | 7 testes | **Aprovado** (Listagem com filtros, Lead 360, 404 handler, Human takeover patch, Perfil imobiliário, Atividades/Notas e Mudança de estágio) |
-| `dashboard.test.ts` (API) | 1 teste | **Aprovado** (Métricas agregadas do funil comercial) |
-| `conversation-engine.test.ts` (IA) | 14 testes | **Aprovado** (Dataset obrigatório completo de 14 cenários) |
-| `conversations.test.ts` (API) | 5 testes | **Aprovado** (Outbound de texto, mídia, histórico e canais) |
-| `webhooks.test.ts` (API) | 5 testes | **Aprovado** (Inbound WhatsApp, Instagram, desafio Meta e deduplicação) |
-| `evolution.provider.test.ts` | 3 testes | **Aprovado** (Normalização e envio) |
-| `meta-cloud.provider.test.ts` | 2 testes | **Aprovado** (Normalização Meta e tokens) |
-| `instagram.provider.test.ts` | 2 testes | **Aprovado** (Normalização Instagram e tokens) |
-| `message-gateway.test.ts` | 2 testes | **Aprovado** (Pipeline de entrada, lead resolution e deduplicação) |
-| Testes de Banco e RLS (Etapa 1) | 11 testes | **Aprovado** (Isolamento de tenant, RBAC, tenant context) |
-| Testes de Contratos e Saúde (Etapa 0) | 7 testes | **Aprovado** (Health check, validação, shared, domain, crm) |
-| **Total Geral** | **58 testes em 18 suites** | **100% Aprovados** |
+| Suite de Testes                       | Quantidade                 | Resultado                                                                                                                                   |
+| ------------------------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `leads.test.ts` (API)                 | 7 testes                   | **Aprovado** (Listagem com filtros, Lead 360, 404 handler, Human takeover patch, Perfil imobiliário, Atividades/Notas e Mudança de estágio) |
+| `dashboard.test.ts` (API)             | 1 teste                    | **Aprovado** (Métricas agregadas do funil comercial)                                                                                        |
+| `conversation-engine.test.ts` (IA)    | 14 testes                  | **Aprovado** (Dataset obrigatório completo de 14 cenários)                                                                                  |
+| `conversations.test.ts` (API)         | 5 testes                   | **Aprovado** (Outbound de texto, mídia, histórico e canais)                                                                                 |
+| `webhooks.test.ts` (API)              | 5 testes                   | **Aprovado** (Inbound WhatsApp, Instagram, desafio Meta e deduplicação)                                                                     |
+| `evolution.provider.test.ts`          | 3 testes                   | **Aprovado** (Normalização e envio)                                                                                                         |
+| `meta-cloud.provider.test.ts`         | 2 testes                   | **Aprovado** (Normalização Meta e tokens)                                                                                                   |
+| `instagram.provider.test.ts`          | 2 testes                   | **Aprovado** (Normalização Instagram e tokens)                                                                                              |
+| `message-gateway.test.ts`             | 2 testes                   | **Aprovado** (Pipeline de entrada, lead resolution e deduplicação)                                                                          |
+| Testes de Banco e RLS (Etapa 1)       | 11 testes                  | **Aprovado** (Isolamento de tenant, RBAC, tenant context)                                                                                   |
+| Testes de Contratos e Saúde (Etapa 0) | 7 testes                   | **Aprovado** (Health check, validação, shared, domain, crm)                                                                                 |
+| **Total Geral**                       | **58 testes em 18 suites** | **100% Aprovados**                                                                                                                          |
 
 ---
 
 ## Verificação de Build, Lint e Tipagem
+
 - `npm run format:check`: 100% aprovado
 - `npm run typecheck`: 0 erros em todos os 8 workspaces
 - `npm run test`: 58 testes passando em 18 arquivos de teste
@@ -61,6 +64,7 @@ Construir a interface visual e os serviços de API do CRM operacional interno, p
 ---
 
 ## Revisão UX & Operacional
+
 - [x] **Operação Completa:** O corretor pode ver o funil, assumir o atendimento com 1 clique, responder pelo WhatsApp, mudar o estágio do lead e editar o perfil sem abrir console técnico.
 - [x] **Aderência ao Design System:** Layout Signal Room com IBM Plex Mono e Plus Jakarta Sans, paleta escura focada em dados e legibilidade.
 - [x] **Isolamento de Tenant:** Todas as consultas e operações do CRM são restritas ao `tenant_id` autenticado.
@@ -68,4 +72,5 @@ Construir a interface visual e os serviços de API do CRM operacional interno, p
 ---
 
 ## Próxima Etapa
+
 **ETAPA 6 — Follow-up Engine** (Motor de follow-up contextual com sequências, jobs agendados, stop conditions rigorosas — cancelando se o lead respondeu —, frequency cap e tela de monitoramento de automações).

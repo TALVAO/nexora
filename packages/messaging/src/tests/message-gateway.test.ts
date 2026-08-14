@@ -3,6 +3,7 @@ import { MessageGateway } from "../gateway/message-gateway.js";
 import {
   LeadRepository,
   MessageRepository,
+  FollowupRepository,
   type LeadRow,
   type ConversationRow,
   type MessageRow,
@@ -13,13 +14,20 @@ describe("MessageGateway Core Pipeline", () => {
   let gateway: MessageGateway;
   let mockLeadRepo: LeadRepository;
   let mockMessageRepo: MessageRepository;
+  let mockFollowupRepo: FollowupRepository;
 
   const tenantCtx = { tenantId: "tenant-aaaa-aaaa-aaaa-aaaaaaaaaaaa" };
 
   beforeEach(() => {
     mockLeadRepo = new LeadRepository();
     mockMessageRepo = new MessageRepository();
-    gateway = new MessageGateway({ leadRepo: mockLeadRepo, messageRepo: mockMessageRepo });
+    mockFollowupRepo = new FollowupRepository();
+    mockFollowupRepo.cancelJobsForLead = vi.fn().mockResolvedValue(0);
+    gateway = new MessageGateway({
+      leadRepo: mockLeadRepo,
+      messageRepo: mockMessageRepo,
+      followupRepo: mockFollowupRepo,
+    });
   });
 
   it("should process inbound message, creating lead, conversation and persisting message", async () => {

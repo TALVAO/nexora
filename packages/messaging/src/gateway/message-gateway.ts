@@ -14,6 +14,7 @@ import {
   type TenantContext,
   assertTenantContext,
   MessageRepository,
+  FollowupRepository,
   query,
   type LeadRow,
   type ConversationRow,
@@ -49,13 +50,16 @@ export class MessageGateway {
   private providers: Map<string, MessagingProvider> = new Map();
   private messageRepo: MessageRepository;
   private conversationEngine: ConversationEngine;
+  private followupRepo: FollowupRepository;
 
   constructor(dependencies?: {
     messageRepo?: MessageRepository;
     conversationEngine?: ConversationEngine;
+    followupRepo?: FollowupRepository;
   }) {
     this.messageRepo = dependencies?.messageRepo || new MessageRepository();
     this.conversationEngine = dependencies?.conversationEngine || new ConversationEngine();
+    this.followupRepo = dependencies?.followupRepo || new FollowupRepository();
 
     // Register standard providers
     this.registerProvider("WHATSAPP", "evolution", new EvolutionWhatsAppProvider());
@@ -137,11 +141,20 @@ export class MessageGateway {
       [normalized.timestamp, conversation.id, ctx.tenantId],
     );
 
+    // 5. STOP CONDITION: Cancel all pending follow-up jobs for this lead because lead replied!
+    if (normalized.direction === "INBOUND") {
+      await this.followupRepo.cancelJobsForLead(
+        ctx,
+        lead.id,
+        "Lead respondeu antes do envio do follow-up",
+      );
+    }
+
     let aiResponse: GeneratedResponse | undefined;
     let outboundMessage: MessageRow | undefined;
     let currentMode = lead.automation_mode;
 
-    // 5. Conversation Engine + IA Processing
+    // 6. Conversation Engine + IA Processing
     if (lead.automation_mode === "AI" && normalized.direction === "INBOUND" && normalized.text) {
       const aiResult = this.conversationEngine.processMessage({
         tenantId: ctx.tenantId,

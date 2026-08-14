@@ -16,11 +16,12 @@ Registro somente do que ajuda a continuidade do projeto.
 **ETAPA 3 (WhatsApp ida e volta) foi CONCLUÍDA com sucesso.** (Relatório: `docs/relatorios/etapa-03.md`)
 **ETAPA 4 (Conversation Engine + IA) foi CONCLUÍDA com sucesso.** (Relatório: `docs/relatorios/etapa-04.md`)
 **ETAPA 5 (CRM interno) foi CONCLUÍDA com sucesso.** (Relatório: `docs/relatorios/etapa-05.md`)
+**ETAPA 6 (Follow-up Engine) foi CONCLUÍDA com sucesso.** (Relatório: `docs/relatorios/etapa-06.md`)
 
-- CRM com Kanban nos 10 estágios canônicos, lista de leads, filtros por temperatura/urgência/automação.
-- Drawer Lead 360 com perfil imobiliário qualificado, histórico, timeline, notas e chat ao vivo via WhatsApp.
-- Botão de Human Takeover com 1 clique para pausar/reativar IA.
-- 58 testes automatizados passando 100% em 18 arquivos de teste.
+- Motor de Follow-up contextual com sequências ativas, scheduler com concorrência segura (`SKIP LOCKED`) e frequency cap.
+- 7 Stop Conditions rigorosas incluindo cancelamento automático no recebimento de inbound no MessageGateway.
+- Teste crítico de DoD aprovado: o follow-up nunca é enviado se o lead respondeu antes do horário.
+- 66 testes automatizados passando 100% em 19 arquivos de teste.
 
 Fases concluídas:
 
@@ -31,12 +32,13 @@ FASE 2 — Message Gateway [CONCLUÍDA]
 FASE 3 — WhatsApp ida e volta [CONCLUÍDA]
 FASE 4 — Conversation Engine + IA [CONCLUÍDA]
 FASE 5 — CRM interno [CONCLUÍDA]
+FASE 6 — Follow-up Engine [CONCLUÍDA]
 ```
 
 Próxima fase (aguardando autorização):
 
 ```text
-FASE 6 — Follow-up Engine
+FASE 7 — Visitas
 ```
 
 ---
