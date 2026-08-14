@@ -3,8 +3,14 @@ import cors from "@fastify/cors";
 import helmet from "@fastify/helmet";
 import sensible from "@fastify/sensible";
 import { healthRoutes } from "./routes/health.js";
+import { webhookRoutes, type WebhookPluginOptions } from "./routes/webhooks.js";
+import type { MessageGateway } from "@nexora/messaging";
 
-export async function buildApp(): Promise<FastifyInstance> {
+export interface AppOptions {
+  gateway?: MessageGateway;
+}
+
+export async function buildApp(options?: AppOptions): Promise<FastifyInstance> {
   const app = fastify({
     logger: {
       level: process.env.LOG_LEVEL || "info",
@@ -32,6 +38,9 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   // Rotas base
   await app.register(healthRoutes);
+  await app.register(webhookRoutes, {
+    gateway: options?.gateway,
+  } as WebhookPluginOptions);
 
   return app;
 }

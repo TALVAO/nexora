@@ -12,6 +12,7 @@ Registro somente do que ajuda a continuidade do projeto.
 
 **ETAPA 0 (Repositório e fundação) foi CONCLUÍDA com sucesso.** (Relatório: `docs/relatorios/etapa-00.md`)
 **ETAPA 1 (Banco, Auth e Multi-tenant) foi CONCLUÍDA com sucesso.** (Relatório: `docs/relatorios/etapa-01.md`)
+**ETAPA 2 (Message Gateway) foi CONCLUÍDA com sucesso.** (Relatório: `docs/relatorios/etapa-02.md`)
 
 - Migrations versionadas: `20260814000001_initial_schema.sql` e `20260814000002_multi_tenant_rls.sql`.
 - 19 tabelas no schema oficial cobrindo CRM, Mensageria, Follow-up, IA, Imóveis e Auditoria.
@@ -20,14 +21,17 @@ Registro somente do que ajuda a continuidade do projeto.
 - 23 testes automatizados (Vitest) passando 100%, comprovando isolamento total entre tenants, hierarquia de roles (RBAC) e proteção contra duplicação.
 
 Fases concluídas:
+
 ```text
 FASE 0 — Repositório e fundação [CONCLUÍDA]
 FASE 1 — Banco / Auth / Multi-tenant [CONCLUÍDA]
+FASE 2 — Message Gateway [CONCLUÍDA]
 ```
 
 Próxima fase (aguardando autorização):
+
 ```text
-FASE 2 — Message Gateway
+FASE 3 — WhatsApp ida e volta
 ```
 
 ---

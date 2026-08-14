@@ -1,11 +1,13 @@
 # Mini-relatório — Etapa 1: Banco, Auth e Multi-tenant
 
 ## Status
+
 **CONCLUÍDA**
 
 ---
 
 ## Objetivo da Etapa
+
 Construir a espinha dorsal de persistência e segurança multi-tenant do **Nexora**, criando as migrations SQL versionadas (schema e RLS), entidades tipadas em TypeScript, contexto de segurança de tenant e repositórios com proteção de isolamento e idempotência, além de testes automatizados comprovando que o Tenant A não consegue acessar ou alterar dados do Tenant B.
 
 ---
@@ -39,19 +41,20 @@ Construir a espinha dorsal de persistência e segurança multi-tenant do **Nexor
 
 ## Testes Executados
 
-| Suite de Testes | Quantidade | Resultado |
-|---|---|---|
-| `rls-isolation.test.ts` | 3 testes | **Aprovado** (Tenant A não vê, altera ou recebe dados do Tenant B) |
-| `role-permission.test.ts` | 4 testes | **Aprovado** (Hierarquia RBAC: OWNER/MANAGER vs AGENT vs VIEWER) |
-| `repository-tenant-context.test.ts` | 3 testes | **Aprovado** (Bloqueio em runtime de queries sem tenant context) |
-| `idempotency.test.ts` | 1 teste | **Aprovado** (Webhooks duplicados detectados sem criar linhas duplicadas) |
-| `health.test.ts` (API) | 1 teste | **Aprovado** (Health check 200 OK) |
-| Testes de Contratos nos Packages | 11 testes | **Aprovado** (Validação, shared, ai, crm, messaging, domain) |
-| **Total Geral** | **23 testes em 11 suites** | **100% Aprovados** |
+| Suite de Testes                     | Quantidade                 | Resultado                                                                 |
+| ----------------------------------- | -------------------------- | ------------------------------------------------------------------------- |
+| `rls-isolation.test.ts`             | 3 testes                   | **Aprovado** (Tenant A não vê, altera ou recebe dados do Tenant B)        |
+| `role-permission.test.ts`           | 4 testes                   | **Aprovado** (Hierarquia RBAC: OWNER/MANAGER vs AGENT vs VIEWER)          |
+| `repository-tenant-context.test.ts` | 3 testes                   | **Aprovado** (Bloqueio em runtime de queries sem tenant context)          |
+| `idempotency.test.ts`               | 1 teste                    | **Aprovado** (Webhooks duplicados detectados sem criar linhas duplicadas) |
+| `health.test.ts` (API)              | 1 teste                    | **Aprovado** (Health check 200 OK)                                        |
+| Testes de Contratos nos Packages    | 11 testes                  | **Aprovado** (Validação, shared, ai, crm, messaging, domain)              |
+| **Total Geral**                     | **23 testes em 11 suites** | **100% Aprovados**                                                        |
 
 ---
 
 ## Verificação de Build, Lint e Tipagem
+
 - `npm run format:check`: 100% aprovado
 - `npm run typecheck`: 0 erros em todos os 8 workspaces
 - `npm run test`: 23 testes passando em 11 arquivos de teste
@@ -60,6 +63,7 @@ Construir a espinha dorsal de persistência e segurança multi-tenant do **Nexor
 ---
 
 ## Revisão de Segurança Adversarial
+
 - [x] **Vazamento entre tenants:** Impossível no banco (RLS) e no código TypeScript (assertions em todos os repositórios).
 - [x] **Duplicação de mensagens:** Prevenida por constraint no PostgreSQL (`uq_message_idempotency`) e no repositório.
 - [x] **Segredos expostos:** 0 segredos ou credenciais reais no repositório.
@@ -68,4 +72,5 @@ Construir a espinha dorsal de persistência e segurança multi-tenant do **Nexor
 ---
 
 ## Próxima Etapa
+
 **ETAPA 2 — Message Gateway** (Recepção de webhooks de WhatsApp e Instagram, validação de assinaturas, normalização de payloads para `NormalizedMessage`, resolução de tenant/lead/conversa e persistência idempotente).

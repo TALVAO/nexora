@@ -56,6 +56,6 @@ export interface MessagingProvider {
   sendText(input: SendTextInput): Promise<SendResult>;
   sendTemplate(input: SendTemplateInput): Promise<SendResult>;
   sendMedia(input: SendMediaInput): Promise<SendResult>;
-  normalizeInbound(payload: unknown): NormalizedMessage;
+  normalizeInbound(payload: unknown, defaultTenantId?: string): NormalizedMessage;
   getDeliveryStatus(payload: unknown): DeliveryStatus;
 }
