@@ -1,16 +1,19 @@
 # Mini-relatório — Etapa 0: Repositório e Fundação
 
 ## Status
+
 **CONCLUÍDA**
 
 ---
 
 ## Objetivo da Etapa
+
 Estabelecer a fundação monorepo do **Nexora** (SaaS Imobiliário), configurando gerenciamento de workspaces, tipagem estrita com TypeScript, padronização de formatação/lint, scaffolding limpo das aplicações (`apps/api` e `apps/web`), pacotes compartilhados (`packages/*`), infraestrutura local em contêineres e pipeline automatizada de CI.
 
 ---
 
 ## O que foi implementado
+
 1. **Estrutura Monorepo (Workspaces):**
    - Configuração de `npm workspaces` gerenciando `apps/*` e `packages/*`.
    - `tsconfig.base.json` com TypeScript estrito (`strict: true`, `noImplicitAny: true`, etc.).
@@ -39,6 +42,7 @@ Estabelecer a fundação monorepo do **Nexora** (SaaS Imobiliário), configurand
 ---
 
 ## Arquivos e Módulos Principais Criados
+
 - `package.json`, `tsconfig.base.json`, `.prettierrc`, `.prettierignore`, `.gitignore`, `.env.example`, `README.md`
 - `.github/workflows/ci.yml`
 - `infra/compose/docker-compose.yml`
@@ -49,22 +53,25 @@ Estabelecer a fundação monorepo do **Nexora** (SaaS Imobiliário), configurand
 ---
 
 ## Banco / Migrations
+
 - Imagem e orquestração Docker Compose para PostgreSQL 16 provisionadas em `infra/compose/docker-compose.yml`.
 - Nenhuma migration de negócio adiantada (as tabelas e RLS serão criadas na Etapa 1).
 
 ---
 
 ## Testes Executados
-| Comando | Descrição | Resultado |
-|---|---|---|
-| `npm run format:check` | Verificação de estilo com Prettier | **Aprovado (100% formatado)** |
-| `npm run typecheck` | Checagem estrita de tipos TypeScript | **Aprovado (0 erros em 8 workspaces)** |
-| `npm run test` | Testes de unidade e integração (Vitest) | **Aprovado (8 suites, 13 testes passando)** |
-| `npm run build` | Compilação de pacotes e Next.js/Fastify | **Aprovado (Todos os builds gerados com sucesso)** |
+
+| Comando                | Descrição                               | Resultado                                          |
+| ---------------------- | --------------------------------------- | -------------------------------------------------- |
+| `npm run format:check` | Verificação de estilo com Prettier      | **Aprovado (100% formatado)**                      |
+| `npm run typecheck`    | Checagem estrita de tipos TypeScript    | **Aprovado (0 erros em 8 workspaces)**             |
+| `npm run test`         | Testes de unidade e integração (Vitest) | **Aprovado (8 suites, 13 testes passando)**        |
+| `npm run build`        | Compilação de pacotes e Next.js/Fastify | **Aprovado (Todos os builds gerados com sucesso)** |
 
 ---
 
 ## Revisão de Segurança e Multi-tenancy
+
 - **Secrets:** Verificado que nenhum secret real, token, connection string ou chave de API está commitada. `.env.example` utiliza valores descritivos fictícios (`placeholder-*`).
 - **Multi-tenant:** Entidades nos pacotes `@nexora/domain`, `@nexora/shared` e `@nexora/messaging` contêm obrigatoriamente `tenantId: string`.
 - **Prevenção de Adiantamento de Escopo:** Nenhuma regra de IA, provider específico ou tabela de domínio foi implementada antes da fase devida.
@@ -72,6 +79,7 @@ Estabelecer a fundação monorepo do **Nexora** (SaaS Imobiliário), configurand
 ---
 
 ## Bugs Encontrados Durante a Revisão & Correções
+
 1. **Resolução de Tipos entre Workspaces:** Ajustados os campos `exports`, `types` e `main` nos pacotes compartilhados para resolução limpa via ESM.
 2. **Download de Google Fonts no Next Build:** Substituído o fetch remoto em tempo de build por importação de CSS resiliente com fallback de fontes no `globals.css`.
 3. **Execução de Testes em Placeholders:** Criados testes de conformidade de contrato nos pacotes base para validação integral da suíte com o Vitest.
@@ -79,4 +87,5 @@ Estabelecer a fundação monorepo do **Nexora** (SaaS Imobiliário), configurand
 ---
 
 ## Próxima Etapa
+
 **ETAPA 1 — Banco, Auth e Multi-tenant** (Criação de migrations Supabase/PostgreSQL, RLS rigoroso, entidades de banco, tenant isolation e testes automatizados de isolamento de dados).

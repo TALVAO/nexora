@@ -10,24 +10,24 @@ Registro somente do que ajuda a continuidade do projeto.
 
 # 1. Estado resumido
 
-**ETAPA 0 (Repositório e fundação) foi CONCLUÍDA com sucesso.**
+**ETAPA 0 (Repositório e fundação) foi CONCLUÍDA com sucesso.** (Relatório: `docs/relatorios/etapa-00.md`)
+**ETAPA 1 (Banco, Auth e Multi-tenant) foi CONCLUÍDA com sucesso.** (Relatório: `docs/relatorios/etapa-01.md`)
 
-Relatório detalhado da etapa gerado em: `docs/relatorios/etapa-00.md`.
+- Migrations versionadas: `20260814000001_initial_schema.sql` e `20260814000002_multi_tenant_rls.sql`.
+- 19 tabelas no schema oficial cobrindo CRM, Mensageria, Follow-up, IA, Imóveis e Auditoria.
+- Row Level Security (RLS) e funções de autorização PostgreSQL implementadas.
+- `@nexora/database` com repositórios tipados (`LeadRepository`, `MessageRepository`, `TenantRepository`), proteção em runtime com `assertTenantContext()` e constraint de idempotência (`uq_message_idempotency`).
+- 23 testes automatizados (Vitest) passando 100%, comprovando isolamento total entre tenants, hierarquia de roles (RBAC) e proteção contra duplicação.
 
-- Monorepo configurado com workspaces (`apps/*` e `packages/*`).
-- TypeScript estrito, Prettier e validação de types/lint passando 100%.
-- `apps/api` (Fastify + Zod + Health Check) e `apps/web` (Next.js 14 + Tailwind + Signal Room design) operacionais.
-- Suíte automatizada de testes com Vitest passando em 8 workspaces (13 testes).
-- Infraestrutura local (`docker-compose.yml`) e pipeline CI (`.github/workflows/ci.yml`) configurados.
-
-Fase atual concluída:
+Fases concluídas:
 ```text
 FASE 0 — Repositório e fundação [CONCLUÍDA]
+FASE 1 — Banco / Auth / Multi-tenant [CONCLUÍDA]
 ```
 
 Próxima fase (aguardando autorização):
 ```text
-FASE 1 — Banco / Auth / Multi-tenant
+FASE 2 — Message Gateway
 ```
 
 ---
