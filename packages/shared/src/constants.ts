@@ -30,3 +30,11 @@ export const FOLLOWUP_STATUSES = [
   "BLOCKED",
   "FAILED",
 ] as const;
+
+export const VISIT_STATUSES = [
+  "SCHEDULED",
+  "CONFIRMED",
+  "COMPLETED",
+  "CANCELLED",
+  "NO_SHOW",
+] as const;

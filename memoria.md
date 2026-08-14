@@ -17,11 +17,11 @@ Registro somente do que ajuda a continuidade do projeto.
 **ETAPA 4 (Conversation Engine + IA) foi CONCLUÍDA com sucesso.** (Relatório: `docs/relatorios/etapa-04.md`)
 **ETAPA 5 (CRM interno) foi CONCLUÍDA com sucesso.** (Relatório: `docs/relatorios/etapa-05.md`)
 **ETAPA 6 (Follow-up Engine) foi CONCLUÍDA com sucesso.** (Relatório: `docs/relatorios/etapa-06.md`)
+**ETAPA 7 (Visitas) foi CONCLUÍDA com sucesso.** (Relatório: `docs/relatorios/etapa-07.md`)
 
-- Motor de Follow-up contextual com sequências ativas, scheduler com concorrência segura (`SKIP LOCKED`) e frequency cap.
-- 7 Stop Conditions rigorosas incluindo cancelamento automático no recebimento de inbound no MessageGateway.
-- Teste crítico de DoD aprovado: o follow-up nunca é enviado se o lead respondeu antes do horário.
-- 66 testes automatizados passando 100% em 19 arquivos de teste.
+- Gestão do ciclo de vida de visitas: agendamento, reagendamento, cancelamento, no-show, feedback.
+- Automação DoD comprovada: a conclusão da visita marca `COMPLETED`, avança o lead para `VISITED` e agenda automaticamente o follow-up pós-visita (`post_visit`).
+- 72 testes automatizados passando 100% em 20 arquivos de teste.
 
 Fases concluídas:
 
@@ -33,12 +33,13 @@ FASE 3 — WhatsApp ida e volta [CONCLUÍDA]
 FASE 4 — Conversation Engine + IA [CONCLUÍDA]
 FASE 5 — CRM interno [CONCLUÍDA]
 FASE 6 — Follow-up Engine [CONCLUÍDA]
+FASE 7 — Visitas [CONCLUÍDA]
 ```
 
 Próxima fase (aguardando autorização):
 
 ```text
-FASE 7 — Visitas
+FASE 8 — Catálogo + Match de imóveis
 ```
 
 ---

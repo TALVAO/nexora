@@ -8,19 +8,28 @@ import { conversationRoutes, type ConversationPluginOptions } from "./routes/con
 import { leadRoutes, type LeadsPluginOptions } from "./routes/leads.js";
 import { dashboardRoutes, type DashboardPluginOptions } from "./routes/dashboard.js";
 import { followupRoutes, type FollowupPluginOptions } from "./routes/followups.js";
+import { visitRoutes, type VisitPluginOptions } from "./routes/visits.js";
 import type {
   MessageGateway,
   EvolutionWhatsAppProvider,
   FollowupScheduler,
+  VisitService,
 } from "@nexora/messaging";
-import type { MessageRepository, LeadRepository, FollowupRepository } from "@nexora/database";
+import type {
+  MessageRepository,
+  LeadRepository,
+  FollowupRepository,
+  VisitRepository,
+} from "@nexora/database";
 
 export interface AppOptions {
   gateway?: MessageGateway;
   messageRepo?: MessageRepository;
   leadRepo?: LeadRepository;
   followupRepo?: FollowupRepository;
+  visitRepo?: VisitRepository;
   scheduler?: FollowupScheduler;
+  visitService?: VisitService;
   evolutionProvider?: EvolutionWhatsAppProvider;
 }
 
@@ -50,7 +59,7 @@ export async function buildApp(options?: AppOptions): Promise<FastifyInstance> {
     credentials: true,
   });
 
-  // Rotas base, CRM e Follow-up Engine
+  // Rotas base, CRM, Follow-up Engine e Visitas
   await app.register(healthRoutes);
   await app.register(webhookRoutes, {
     gateway: options?.gateway,
@@ -71,6 +80,11 @@ export async function buildApp(options?: AppOptions): Promise<FastifyInstance> {
     leadRepo: options?.leadRepo,
     scheduler: options?.scheduler,
   } as FollowupPluginOptions);
+  await app.register(visitRoutes, {
+    visitRepo: options?.visitRepo,
+    leadRepo: options?.leadRepo,
+    visitService: options?.visitService,
+  } as VisitPluginOptions);
 
   return app;
 }

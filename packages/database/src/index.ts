@@ -5,3 +5,4 @@ export * from "./repositories/lead.repository.js";
 export * from "./repositories/message.repository.js";
 export * from "./repositories/tenant.repository.js";
 export * from "./repositories/followup.repository.js";
+export * from "./repositories/visit.repository.js";
