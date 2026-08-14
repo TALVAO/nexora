@@ -5,12 +5,15 @@ import sensible from "@fastify/sensible";
 import { healthRoutes } from "./routes/health.js";
 import { webhookRoutes, type WebhookPluginOptions } from "./routes/webhooks.js";
 import { conversationRoutes, type ConversationPluginOptions } from "./routes/conversations.js";
+import { leadRoutes, type LeadsPluginOptions } from "./routes/leads.js";
+import { dashboardRoutes, type DashboardPluginOptions } from "./routes/dashboard.js";
 import type { MessageGateway, EvolutionWhatsAppProvider } from "@nexora/messaging";
-import type { MessageRepository } from "@nexora/database";
+import type { MessageRepository, LeadRepository } from "@nexora/database";
 
 export interface AppOptions {
   gateway?: MessageGateway;
   messageRepo?: MessageRepository;
+  leadRepo?: LeadRepository;
   evolutionProvider?: EvolutionWhatsAppProvider;
 }
 
@@ -40,7 +43,7 @@ export async function buildApp(options?: AppOptions): Promise<FastifyInstance> {
     credentials: true,
   });
 
-  // Rotas base
+  // Rotas base e do CRM
   await app.register(healthRoutes);
   await app.register(webhookRoutes, {
     gateway: options?.gateway,
@@ -50,6 +53,12 @@ export async function buildApp(options?: AppOptions): Promise<FastifyInstance> {
     messageRepo: options?.messageRepo,
     evolutionProvider: options?.evolutionProvider,
   } as ConversationPluginOptions);
+  await app.register(leadRoutes, {
+    leadRepo: options?.leadRepo,
+  } as LeadsPluginOptions);
+  await app.register(dashboardRoutes, {
+    leadRepo: options?.leadRepo,
+  } as DashboardPluginOptions);
 
   return app;
 }

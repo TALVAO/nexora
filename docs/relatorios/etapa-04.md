@@ -1,11 +1,13 @@
 # Mini-relatório — Etapa 4: Conversation Engine + IA
 
 ## Status
+
 **CONCLUÍDA**
 
 ---
 
 ## Objetivo da Etapa
+
 Construir o motor conversacional com Inteligência Artificial baseado na arquitetura modular de 4 estágios (`Classificar` ➔ `Extrair` ➔ `Decidir` ➔ `Responder`), sem prompts monolíticos, com guardrails estritos contra alucinação de dados imobiliários, human takeover automático, suporte a opt-out e rastreabilidade total via `ai_runs`.
 
 ---
@@ -36,22 +38,23 @@ Construir o motor conversacional com Inteligência Artificial baseado na arquite
 
 ## Testes Executados
 
-| Suite de Testes | Quantidade | Resultado |
-|---|---|---|
-| `conversation-engine.test.ts` (IA) | 14 testes | **Aprovado** (Dataset obrigatório completo: lead direto, confuso, mudança de ideia, compra->locação, locação->venda, mensagem curta, áudio transcrito, orçamento falado, bairro múltiplo, pedido de humano, reclamação, negociação, pergunta não existente e opt-out) |
-| `conversations.test.ts` (API) | 5 testes | **Aprovado** (Outbound de texto, mídia, histórico e status) |
-| `webhooks.test.ts` (API) | 5 testes | **Aprovado** (Inbound WhatsApp, Instagram, desafio Meta e deduplicação) |
-| `evolution.provider.test.ts` | 3 testes | **Aprovado** (Normalização e envio) |
-| `meta-cloud.provider.test.ts` | 2 testes | **Aprovado** (Normalização Meta e tokens) |
-| `instagram.provider.test.ts` | 2 testes | **Aprovado** (Normalização Instagram e tokens) |
-| `message-gateway.test.ts` | 2 testes | **Aprovado** (Pipeline de entrada, lead resolution e deduplicação) |
-| Testes de Banco e RLS (Etapa 1) | 11 testes | **Aprovado** (Isolamento de tenant, RBAC, tenant context) |
-| Testes de Contratos e Saúde (Etapa 0) | 7 testes | **Aprovado** (Health check, validação, shared, domain, crm) |
-| **Total Geral** | **50 testes em 16 suites** | **100% Aprovados** |
+| Suite de Testes                       | Quantidade                 | Resultado                                                                                                                                                                                                                                                             |
+| ------------------------------------- | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `conversation-engine.test.ts` (IA)    | 14 testes                  | **Aprovado** (Dataset obrigatório completo: lead direto, confuso, mudança de ideia, compra->locação, locação->venda, mensagem curta, áudio transcrito, orçamento falado, bairro múltiplo, pedido de humano, reclamação, negociação, pergunta não existente e opt-out) |
+| `conversations.test.ts` (API)         | 5 testes                   | **Aprovado** (Outbound de texto, mídia, histórico e status)                                                                                                                                                                                                           |
+| `webhooks.test.ts` (API)              | 5 testes                   | **Aprovado** (Inbound WhatsApp, Instagram, desafio Meta e deduplicação)                                                                                                                                                                                               |
+| `evolution.provider.test.ts`          | 3 testes                   | **Aprovado** (Normalização e envio)                                                                                                                                                                                                                                   |
+| `meta-cloud.provider.test.ts`         | 2 testes                   | **Aprovado** (Normalização Meta e tokens)                                                                                                                                                                                                                             |
+| `instagram.provider.test.ts`          | 2 testes                   | **Aprovado** (Normalização Instagram e tokens)                                                                                                                                                                                                                        |
+| `message-gateway.test.ts`             | 2 testes                   | **Aprovado** (Pipeline de entrada, lead resolution e deduplicação)                                                                                                                                                                                                    |
+| Testes de Banco e RLS (Etapa 1)       | 11 testes                  | **Aprovado** (Isolamento de tenant, RBAC, tenant context)                                                                                                                                                                                                             |
+| Testes de Contratos e Saúde (Etapa 0) | 7 testes                   | **Aprovado** (Health check, validação, shared, domain, crm)                                                                                                                                                                                                           |
+| **Total Geral**                       | **50 testes em 16 suites** | **100% Aprovados**                                                                                                                                                                                                                                                    |
 
 ---
 
 ## Verificação de Build, Lint e Tipagem
+
 - `npm run format:check`: 100% aprovado
 - `npm run typecheck`: 0 erros em todos os 8 workspaces
 - `npm run test`: 50 testes passando em 16 arquivos de teste
@@ -60,6 +63,7 @@ Construir o motor conversacional com Inteligência Artificial baseado na arquite
 ---
 
 ## Revisão de Guardrails de IA
+
 - [x] **Zero Alucinação:** A IA nunca inventa valores de condomínio, IPTU ou regras prediais não cadastradas.
 - [x] **Human Takeover Imediato:** Pedidos de desconto, insatisfações ou solicitações de atendente transferem a conversa para `HUMAN` e notificam o corretor.
 - [x] **Auditoria Completa:** Cada execução gera um registro rastreável em `ai_runs`.
@@ -67,4 +71,5 @@ Construir o motor conversacional com Inteligência Artificial baseado na arquite
 ---
 
 ## Próxima Etapa
+
 **ETAPA 5 — CRM Interno** (Visualização e gestão do funil com 10 estágios, kanban/lista de leads, drawer de conversa com human takeover, filtros por temperatura/urgência e edição de perfil qualificado).

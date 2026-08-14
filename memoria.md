@@ -15,10 +15,12 @@ Registro somente do que ajuda a continuidade do projeto.
 **ETAPA 2 (Message Gateway) foi CONCLUÍDA com sucesso.** (Relatório: `docs/relatorios/etapa-02.md`)
 **ETAPA 3 (WhatsApp ida e volta) foi CONCLUÍDA com sucesso.** (Relatório: `docs/relatorios/etapa-03.md`)
 **ETAPA 4 (Conversation Engine + IA) foi CONCLUÍDA com sucesso.** (Relatório: `docs/relatorios/etapa-04.md`)
+**ETAPA 5 (CRM interno) foi CONCLUÍDA com sucesso.** (Relatório: `docs/relatorios/etapa-05.md`)
 
-- Motor de IA com 4 módulos desacoplados: `IntentClassifier` (13 intenções), `StructuredExtractor` (extração factual sem alucinação), `NextActionPolicy` (priorização anti-interrogatório) e `ResponseGenerator` (guardrails estritos).
-- Human takeover automático para pedidos de atendimento, reclamações e negociações de valores.
-- 50 testes automatizados passando 100% incluindo o dataset obrigatório completo de 14 cenários da Seção 57.
+- CRM com Kanban nos 10 estágios canônicos, lista de leads, filtros por temperatura/urgência/automação.
+- Drawer Lead 360 com perfil imobiliário qualificado, histórico, timeline, notas e chat ao vivo via WhatsApp.
+- Botão de Human Takeover com 1 clique para pausar/reativar IA.
+- 58 testes automatizados passando 100% em 18 arquivos de teste.
 
 Fases concluídas:
 
@@ -28,12 +30,13 @@ FASE 1 — Banco / Auth / Multi-tenant [CONCLUÍDA]
 FASE 2 — Message Gateway [CONCLUÍDA]
 FASE 3 — WhatsApp ida e volta [CONCLUÍDA]
 FASE 4 — Conversation Engine + IA [CONCLUÍDA]
+FASE 5 — CRM interno [CONCLUÍDA]
 ```
 
 Próxima fase (aguardando autorização):
 
 ```text
-FASE 5 — CRM interno
+FASE 6 — Follow-up Engine
 ```
 
 ---

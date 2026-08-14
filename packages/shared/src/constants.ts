@@ -19,3 +19,5 @@ export const ROLES = ["OWNER", "MANAGER", "AGENT", "VIEWER"] as const;
 export const CHANNELS = ["WHATSAPP", "INSTAGRAM"] as const;
 
 export const AUTOMATION_MODES = ["AI", "HUMAN"] as const;
+
+export const TEMPERATURES = ["HOT", "WARM", "COLD"] as const;
