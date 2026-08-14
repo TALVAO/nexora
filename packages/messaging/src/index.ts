@@ -6,3 +6,5 @@ export * from "./providers/mock.provider.js";
 export * from "./gateway/message-gateway.js";
 export * from "./followup/followup-scheduler.js";
 export * from "./visits/visit-service.js";
+export * from "./catalog/property-matcher.js";
+export * from "./catalog/csv-importer.js";

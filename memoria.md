@@ -18,10 +18,11 @@ Registro somente do que ajuda a continuidade do projeto.
 **ETAPA 5 (CRM interno) foi CONCLUÍDA com sucesso.** (Relatório: `docs/relatorios/etapa-05.md`)
 **ETAPA 6 (Follow-up Engine) foi CONCLUÍDA com sucesso.** (Relatório: `docs/relatorios/etapa-06.md`)
 **ETAPA 7 (Visitas) foi CONCLUÍDA com sucesso.** (Relatório: `docs/relatorios/etapa-07.md`)
+**ETAPA 8 (Catálogo + Match de imóveis) foi CONCLUÍDA com sucesso.** (Relatório: `docs/relatorios/etapa-08.md`)
 
-- Gestão do ciclo de vida de visitas: agendamento, reagendamento, cancelamento, no-show, feedback.
-- Automação DoD comprovada: a conclusão da visita marca `COMPLETED`, avança o lead para `VISITED` e agenda automaticamente o follow-up pós-visita (`post_visit`).
-- 72 testes automatizados passando 100% em 20 arquivos de teste.
+- Inventário de propriedades com filtros determinísticos, importação em lote de CSV (`CsvPropertyImporter`).
+- Motor de matching com filtros eliminatórios rígidos (disponibilidade PostgreSQL, transação, teto de orçamento com margem de 10% e pets) e pontuação de compatibilidade 0 a 100.
+- 80 testes automatizados passando 100% em 21 arquivos de teste.
 
 Fases concluídas:
 
@@ -34,12 +35,13 @@ FASE 4 — Conversation Engine + IA [CONCLUÍDA]
 FASE 5 — CRM interno [CONCLUÍDA]
 FASE 6 — Follow-up Engine [CONCLUÍDA]
 FASE 7 — Visitas [CONCLUÍDA]
+FASE 8 — Catálogo + Match de imóveis [CONCLUÍDA]
 ```
 
 Próxima fase (aguardando autorização):
 
 ```text
-FASE 8 — Catálogo + Match de imóveis
+FASE 9 — Instagram
 ```
 
 ---

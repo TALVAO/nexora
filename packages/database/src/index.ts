@@ -6,3 +6,4 @@ export * from "./repositories/message.repository.js";
 export * from "./repositories/tenant.repository.js";
 export * from "./repositories/followup.repository.js";
 export * from "./repositories/visit.repository.js";
+export * from "./repositories/property.repository.js";

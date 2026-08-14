@@ -9,17 +9,21 @@ import { leadRoutes, type LeadsPluginOptions } from "./routes/leads.js";
 import { dashboardRoutes, type DashboardPluginOptions } from "./routes/dashboard.js";
 import { followupRoutes, type FollowupPluginOptions } from "./routes/followups.js";
 import { visitRoutes, type VisitPluginOptions } from "./routes/visits.js";
+import { propertyRoutes, type PropertyPluginOptions } from "./routes/properties.js";
 import type {
   MessageGateway,
   EvolutionWhatsAppProvider,
   FollowupScheduler,
   VisitService,
+  PropertyMatcher,
+  CsvPropertyImporter,
 } from "@nexora/messaging";
 import type {
   MessageRepository,
   LeadRepository,
   FollowupRepository,
   VisitRepository,
+  PropertyRepository,
 } from "@nexora/database";
 
 export interface AppOptions {
@@ -28,8 +32,11 @@ export interface AppOptions {
   leadRepo?: LeadRepository;
   followupRepo?: FollowupRepository;
   visitRepo?: VisitRepository;
+  propertyRepo?: PropertyRepository;
   scheduler?: FollowupScheduler;
   visitService?: VisitService;
+  matcher?: PropertyMatcher;
+  csvImporter?: CsvPropertyImporter;
   evolutionProvider?: EvolutionWhatsAppProvider;
 }
 
@@ -59,7 +66,7 @@ export async function buildApp(options?: AppOptions): Promise<FastifyInstance> {
     credentials: true,
   });
 
-  // Rotas base, CRM, Follow-up Engine e Visitas
+  // Rotas base, CRM, Follow-up Engine, Visitas e Catálogo de Imóveis
   await app.register(healthRoutes);
   await app.register(webhookRoutes, {
     gateway: options?.gateway,
@@ -85,6 +92,12 @@ export async function buildApp(options?: AppOptions): Promise<FastifyInstance> {
     leadRepo: options?.leadRepo,
     visitService: options?.visitService,
   } as VisitPluginOptions);
+  await app.register(propertyRoutes, {
+    propertyRepo: options?.propertyRepo,
+    leadRepo: options?.leadRepo,
+    matcher: options?.matcher,
+    csvImporter: options?.csvImporter,
+  } as PropertyPluginOptions);
 
   return app;
 }

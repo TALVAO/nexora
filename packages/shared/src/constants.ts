@@ -38,3 +38,5 @@ export const VISIT_STATUSES = [
   "CANCELLED",
   "NO_SHOW",
 ] as const;
+
+export const PROPERTY_STATUSES = ["AVAILABLE", "RENTED", "SOLD", "RESERVED"] as const;
