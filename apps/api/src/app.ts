@@ -11,6 +11,7 @@ import { followupRoutes, type FollowupPluginOptions } from "./routes/followups.j
 import { visitRoutes, type VisitPluginOptions } from "./routes/visits.js";
 import { propertyRoutes, type PropertyPluginOptions } from "./routes/properties.js";
 import { crmRoutes, type CRMPluginOptions } from "./routes/crm.js";
+import { pilotRoutes, type PilotPluginOptions } from "./routes/pilot.js";
 import type {
   MessageGateway,
   EvolutionWhatsAppProvider,
@@ -25,6 +26,7 @@ import type {
   FollowupRepository,
   VisitRepository,
   PropertyRepository,
+  PilotRepository,
 } from "@nexora/database";
 import type { CRMSyncService } from "@nexora/crm";
 
@@ -35,6 +37,7 @@ export interface AppOptions {
   followupRepo?: FollowupRepository;
   visitRepo?: VisitRepository;
   propertyRepo?: PropertyRepository;
+  pilotRepo?: PilotRepository;
   scheduler?: FollowupScheduler;
   visitService?: VisitService;
   matcher?: PropertyMatcher;
@@ -69,7 +72,7 @@ export async function buildApp(options?: AppOptions): Promise<FastifyInstance> {
     credentials: true,
   });
 
-  // Rotas base, CRM interno, Follow-up Engine, Visitas, Catálogo e CRM Externo
+  // Rotas base, CRM interno, Follow-up Engine, Visitas, Catálogo, CRM Externo e Piloto Real
   await app.register(healthRoutes);
   await app.register(webhookRoutes, {
     gateway: options?.gateway,
@@ -106,6 +109,9 @@ export async function buildApp(options?: AppOptions): Promise<FastifyInstance> {
     visitRepo: options?.visitRepo,
     crmService: options?.crmService,
   } as CRMPluginOptions);
+  await app.register(pilotRoutes, {
+    pilotRepo: options?.pilotRepo,
+  } as PilotPluginOptions);
 
   return app;
 }

@@ -21,10 +21,11 @@ Registro somente do que ajuda a continuidade do projeto.
 **ETAPA 8 (Catálogo + Match de imóveis) foi CONCLUÍDA com sucesso.** (Relatório: `docs/relatorios/etapa-08.md`)
 **ETAPA 9 (Instagram) foi CONCLUÍDA com sucesso.** (Relatório: `docs/relatorios/etapa-09.md`)
 **ETAPA 10 (CRM externo) foi CONCLUÍDA com sucesso.** (Relatório: `docs/relatorios/etapa-10.md`)
+**ETAPA 11 (Piloto real) foi CONCLUÍDA com sucesso.** (Relatório: `docs/relatorios/etapa-11.md`)
 
-- Adaptador universal agnóstico `CRMAdapter` com 4 modos operacionais: `NO_SYNC`, `CSV_EXPORT`, `WEBHOOK` e `API` (com retries com backoff).
-- Orquestrador `CRMSyncService` com política estrita de sincronização apenas do essencial (leads qualificados, visitas, etapas e notas).
-- 95 testes automatizados passando 100% em 23 arquivos de teste.
+- Estrutura completa de validação operacional do Cliente Zero (1 tenant, 1 corretor, 1 número de WhatsApp, 1 fluxo de locação).
+- Repositório e rotas de observabilidade diária do piloto (`PilotRepository`), registro de incidentes da IA, dúvidas não respondidas, leads perdidos com justificativas e tempo economizado.
+- 98 testes automatizados passando 100% em 24 arquivos de teste.
 
 Fases concluídas:
 
@@ -40,12 +41,13 @@ FASE 7 — Visitas [CONCLUÍDA]
 FASE 8 — Catálogo + Match de imóveis [CONCLUÍDA]
 FASE 9 — Instagram [CONCLUÍDA]
 FASE 10 — CRM externo [CONCLUÍDA]
+FASE 11 — Piloto real [CONCLUÍDA]
 ```
 
 Próxima fase (aguardando autorização):
 
 ```text
-FASE 11 — Piloto real
+FASE 12 — SaaS comercial
 ```
 
 ---
