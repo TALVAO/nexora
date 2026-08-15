@@ -571,6 +571,128 @@ export class LeadRepository {
     };
   }
 
+  async linkIdentity(
+    ctx: TenantContext,
+    leadId: string,
+    identity: {
+      phone?: string | null;
+      instagram_user_id?: string | null;
+      email?: string | null;
+      name?: string | null;
+    },
+  ): Promise<LeadRow | null> {
+    assertTenantContext(ctx);
+
+    const fields: string[] = [];
+    const params: unknown[] = [leadId, ctx.tenantId];
+    let idx = 3;
+
+    if (identity.phone) {
+      fields.push(`phone = COALESCE(phone, $${idx++})`);
+      params.push(identity.phone);
+    }
+    if (identity.instagram_user_id) {
+      fields.push(`instagram_user_id = COALESCE(instagram_user_id, $${idx++})`);
+      params.push(identity.instagram_user_id);
+    }
+    if (identity.email) {
+      fields.push(`email = COALESCE(email, $${idx++})`);
+      params.push(identity.email);
+    }
+    if (identity.name) {
+      fields.push(`name = COALESCE(name, $${idx++})`);
+      params.push(identity.name);
+    }
+
+    if (fields.length === 0) return this.findById(ctx, leadId);
+
+    const sql = `
+      UPDATE leads
+      SET ${fields.join(", ")}, updated_at = now()
+      WHERE id = $1 AND tenant_id = $2
+      RETURNING *;
+    `;
+
+    const result = await query<LeadRow>(sql, params);
+    return result.rows[0] || null;
+  }
+
+  async mergeLeads(
+    ctx: TenantContext,
+    targetLeadId: string,
+    sourceLeadId: string,
+  ): Promise<LeadRow | null> {
+    assertTenantContext(ctx);
+
+    const targetLead = await this.findById(ctx, targetLeadId);
+    const sourceLead = await this.findById(ctx, sourceLeadId);
+
+    if (!targetLead || !sourceLead) {
+      throw new Error("Leads não encontrados para unificação.");
+    }
+
+    // 1. Unificar dados de contato no target sem sobrescrever
+    await query(
+      `
+      UPDATE leads
+      SET
+        phone = COALESCE(leads.phone, $1),
+        instagram_user_id = COALESCE(leads.instagram_user_id, $2),
+        email = COALESCE(leads.email, $3),
+        name = COALESCE(leads.name, $4),
+        updated_at = now()
+      WHERE id = $5 AND tenant_id = $6;
+    `,
+      [
+        sourceLead.phone,
+        sourceLead.instagram_user_id,
+        sourceLead.email,
+        sourceLead.name,
+        targetLeadId,
+        ctx.tenantId,
+      ],
+    );
+
+    // 2. Transferir conversas do source para o target
+    await query(`UPDATE conversations SET lead_id = $1 WHERE lead_id = $2 AND tenant_id = $3;`, [
+      targetLeadId,
+      sourceLeadId,
+      ctx.tenantId,
+    ]);
+
+    // 3. Transferir mensagens do source para o target
+    await query(`UPDATE messages SET lead_id = $1 WHERE lead_id = $2 AND tenant_id = $3;`, [
+      targetLeadId,
+      sourceLeadId,
+      ctx.tenantId,
+    ]);
+
+    // 4. Transferir atividades do source para o target
+    await query(`UPDATE activities SET lead_id = $1 WHERE lead_id = $2 AND tenant_id = $3;`, [
+      targetLeadId,
+      sourceLeadId,
+      ctx.tenantId,
+    ]);
+
+    // 5. Transferir visitas do source para o target
+    await query(`UPDATE visits SET lead_id = $1 WHERE lead_id = $2 AND tenant_id = $3;`, [
+      targetLeadId,
+      sourceLeadId,
+      ctx.tenantId,
+    ]);
+
+    // 6. Registrar atividade de unificação
+    await this.addActivity(ctx, targetLeadId, {
+      activity_type: "NOTE",
+      description: `Identidade de canais unificada com sucesso (Origem: Lead ${sourceLeadId}).`,
+    });
+
+    // 7. Deletar lead duplicado de origem
+    await this.delete(ctx, sourceLeadId);
+
+    return this.findById(ctx, targetLeadId);
+  }
+
   async delete(ctx: TenantContext, id: string): Promise<boolean> {
     assertTenantContext(ctx);
 

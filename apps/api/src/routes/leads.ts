@@ -280,4 +280,89 @@ export const leadRoutes: FastifyPluginAsync<LeadsPluginOptions> = async (fastify
       }
     },
   );
+
+  // ----------------------------------------------------------------------------
+  // Vincular Identidade de Canal (Telefone / Instagram)
+  // ----------------------------------------------------------------------------
+  fastify.post(
+    "/api/leads/:id/link-identity",
+    async (
+      request: FastifyRequest<{
+        Params: { id: string };
+        Body: {
+          phone?: string;
+          instagram_user_id?: string;
+          email?: string;
+          name?: string;
+        };
+        Headers: { "x-tenant-id"?: string };
+      }>,
+      reply: FastifyReply,
+    ) => {
+      const { id } = request.params;
+      const tenantId =
+        request.headers["x-tenant-id"] ||
+        process.env.DEFAULT_TENANT_ID ||
+        "a0000000-0000-0000-0000-000000000001";
+
+      try {
+        const updated = await leadRepo.linkIdentity({ tenantId }, id, request.body);
+
+        return reply.status(200).send({
+          success: true,
+          lead: updated,
+        });
+      } catch (err: unknown) {
+        request.log.error(err, "Erro ao vincular identidade ao lead");
+        return reply.status(500).send({
+          success: false,
+          error: err instanceof Error ? err.message : "Erro ao vincular identidade",
+        });
+      }
+    },
+  );
+
+  // ----------------------------------------------------------------------------
+  // Unificar / Merge de Leads de Canais Cruzados (Instagram -> WhatsApp)
+  // ----------------------------------------------------------------------------
+  fastify.post(
+    "/api/leads/:id/merge",
+    async (
+      request: FastifyRequest<{
+        Params: { id: string };
+        Body: { sourceLeadId: string };
+        Headers: { "x-tenant-id"?: string };
+      }>,
+      reply: FastifyReply,
+    ) => {
+      const { id: targetLeadId } = request.params;
+      const { sourceLeadId } = request.body;
+      const tenantId =
+        request.headers["x-tenant-id"] ||
+        process.env.DEFAULT_TENANT_ID ||
+        "a0000000-0000-0000-0000-000000000001";
+
+      if (!sourceLeadId) {
+        return reply.status(400).send({
+          success: false,
+          error: "sourceLeadId é obrigatório para unificação.",
+        });
+      }
+
+      try {
+        const unified = await leadRepo.mergeLeads({ tenantId }, targetLeadId, sourceLeadId);
+
+        return reply.status(200).send({
+          success: true,
+          lead: unified,
+        });
+      } catch (err: unknown) {
+        request.log.error(err, "Erro ao unificar leads");
+        return reply.status(500).send({
+          success: false,
+          error: err instanceof Error ? err.message : "Erro ao unificar leads",
+        });
+      }
+    },
+  );
 };

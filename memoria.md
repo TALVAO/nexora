@@ -19,10 +19,11 @@ Registro somente do que ajuda a continuidade do projeto.
 **ETAPA 6 (Follow-up Engine) foi CONCLUÍDA com sucesso.** (Relatório: `docs/relatorios/etapa-06.md`)
 **ETAPA 7 (Visitas) foi CONCLUÍDA com sucesso.** (Relatório: `docs/relatorios/etapa-07.md`)
 **ETAPA 8 (Catálogo + Match de imóveis) foi CONCLUÍDA com sucesso.** (Relatório: `docs/relatorios/etapa-08.md`)
+**ETAPA 9 (Instagram) foi CONCLUÍDA com sucesso.** (Relatório: `docs/relatorios/etapa-09.md`)
 
-- Inventário de propriedades com filtros determinísticos, importação em lote de CSV (`CsvPropertyImporter`).
-- Motor de matching com filtros eliminatórios rígidos (disponibilidade PostgreSQL, transação, teto de orçamento com margem de 10% e pets) e pontuação de compatibilidade 0 a 100.
-- 80 testes automatizados passando 100% em 21 arquivos de teste.
+- Integração completa com Instagram Direct via Meta Graph API v19.0 com suporte a DMs, respostas e menções a Stories.
+- Resolução e unificação não-destrutiva de identidade cross-channel (`linkIdentity`, `mergeLeads`) permitindo transição de leads entre Instagram e WhatsApp sem perda de histórico.
+- 88 testes automatizados passando 100% em 22 arquivos de teste.
 
 Fases concluídas:
 
@@ -36,12 +37,13 @@ FASE 5 — CRM interno [CONCLUÍDA]
 FASE 6 — Follow-up Engine [CONCLUÍDA]
 FASE 7 — Visitas [CONCLUÍDA]
 FASE 8 — Catálogo + Match de imóveis [CONCLUÍDA]
+FASE 9 — Instagram [CONCLUÍDA]
 ```
 
 Próxima fase (aguardando autorização):
 
 ```text
-FASE 9 — Instagram
+FASE 10 — CRM externo
 ```
 
 ---

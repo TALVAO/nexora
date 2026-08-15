@@ -201,27 +201,50 @@ describe("CRM Leads API Integration (Etapa 5)", () => {
     });
   });
 
-  describe("POST /api/leads/:id/stage (Stage Change)", () => {
-    it("should advance lead stage to QUALIFIED", async () => {
-      leadRepo.changeStage = async () => ({
+  describe("POST /api/leads/:id/link-identity (Link Instagram or Phone)", () => {
+    it("should link phone to an existing lead", async () => {
+      leadRepo.linkIdentity = async () => ({
         ...fakeLead,
-        stage: "QUALIFIED",
+        phone: "5511988887777",
       });
 
       const response = await app.inject({
         method: "POST",
-        url: `/api/leads/${testLeadId}/stage`,
+        url: `/api/leads/${testLeadId}/link-identity`,
         headers: { "x-tenant-id": testTenantId },
         payload: {
-          stage: "QUALIFIED",
-          reason: "Perfil completo confirmado",
+          phone: "5511988887777",
         },
       });
 
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.payload);
       expect(body.success).toBe(true);
-      expect(body.lead.stage).toBe("QUALIFIED");
+      expect(body.lead.phone).toBe("5511988887777");
+    });
+  });
+
+  describe("POST /api/leads/:id/merge (Merge Cross-channel Leads)", () => {
+    it("should merge source lead into target lead", async () => {
+      leadRepo.mergeLeads = async () => ({
+        ...fakeLead,
+        phone: "5511988887777",
+        instagram_user_id: "instagram_lead_user",
+      });
+
+      const response = await app.inject({
+        method: "POST",
+        url: `/api/leads/${testLeadId}/merge`,
+        headers: { "x-tenant-id": testTenantId },
+        payload: {
+          sourceLeadId: "lead-source-999",
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.payload);
+      expect(body.success).toBe(true);
+      expect(body.lead.instagram_user_id).toBe("instagram_lead_user");
     });
   });
 });
