@@ -20,10 +20,11 @@ Registro somente do que ajuda a continuidade do projeto.
 **ETAPA 7 (Visitas) foi CONCLUÍDA com sucesso.** (Relatório: `docs/relatorios/etapa-07.md`)
 **ETAPA 8 (Catálogo + Match de imóveis) foi CONCLUÍDA com sucesso.** (Relatório: `docs/relatorios/etapa-08.md`)
 **ETAPA 9 (Instagram) foi CONCLUÍDA com sucesso.** (Relatório: `docs/relatorios/etapa-09.md`)
+**ETAPA 10 (CRM externo) foi CONCLUÍDA com sucesso.** (Relatório: `docs/relatorios/etapa-10.md`)
 
-- Integração completa com Instagram Direct via Meta Graph API v19.0 com suporte a DMs, respostas e menções a Stories.
-- Resolução e unificação não-destrutiva de identidade cross-channel (`linkIdentity`, `mergeLeads`) permitindo transição de leads entre Instagram e WhatsApp sem perda de histórico.
-- 88 testes automatizados passando 100% em 22 arquivos de teste.
+- Adaptador universal agnóstico `CRMAdapter` com 4 modos operacionais: `NO_SYNC`, `CSV_EXPORT`, `WEBHOOK` e `API` (com retries com backoff).
+- Orquestrador `CRMSyncService` com política estrita de sincronização apenas do essencial (leads qualificados, visitas, etapas e notas).
+- 95 testes automatizados passando 100% em 23 arquivos de teste.
 
 Fases concluídas:
 
@@ -38,12 +39,13 @@ FASE 6 — Follow-up Engine [CONCLUÍDA]
 FASE 7 — Visitas [CONCLUÍDA]
 FASE 8 — Catálogo + Match de imóveis [CONCLUÍDA]
 FASE 9 — Instagram [CONCLUÍDA]
+FASE 10 — CRM externo [CONCLUÍDA]
 ```
 
 Próxima fase (aguardando autorização):
 
 ```text
-FASE 10 — CRM externo
+FASE 11 — Piloto real
 ```
 
 ---
