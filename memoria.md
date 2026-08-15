@@ -22,10 +22,11 @@ Registro somente do que ajuda a continuidade do projeto.
 **ETAPA 9 (Instagram) foi CONCLUÍDA com sucesso.** (Relatório: `docs/relatorios/etapa-09.md`)
 **ETAPA 10 (CRM externo) foi CONCLUÍDA com sucesso.** (Relatório: `docs/relatorios/etapa-10.md`)
 **ETAPA 11 (Piloto real) foi CONCLUÍDA com sucesso.** (Relatório: `docs/relatorios/etapa-11.md`)
+**ETAPA 12 (SaaS comercial) foi CONCLUÍDA com sucesso.** (Relatório: `docs/relatorios/etapa-12.md`)
 
-- Estrutura completa de validação operacional do Cliente Zero (1 tenant, 1 corretor, 1 número de WhatsApp, 1 fluxo de locação).
-- Repositório e rotas de observabilidade diária do piloto (`PilotRepository`), registro de incidentes da IA, dúvidas não respondidas, leads perdidos com justificativas e tempo economizado.
-- 98 testes automatizados passando 100% em 24 arquivos de teste.
+- Onboarding self-service unificado, provisionamento de tenants, gestão de assinaturas (`INDIVIDUAL`, `TEAM`, `BUSINESS`), limites em tempo real, convite de corretores com RBAC, branding e auditoria.
+- 106 testes automatizados passando 100% em 25 arquivos de teste.
+- Todas as 13 etapas oficiais do Plano Mestre foram concluídas e validadas.
 
 Fases concluídas:
 
@@ -42,12 +43,13 @@ FASE 8 — Catálogo + Match de imóveis [CONCLUÍDA]
 FASE 9 — Instagram [CONCLUÍDA]
 FASE 10 — CRM externo [CONCLUÍDA]
 FASE 11 — Piloto real [CONCLUÍDA]
+FASE 12 — SaaS comercial [CONCLUÍDA]
 ```
 
-Próxima fase (aguardando autorização):
+Status atual:
 
 ```text
-FASE 12 — SaaS comercial
+TODAS AS ETAPAS DO PLANO MESTRE ESTÃO CONCLUÍDAS COM SUCESSO.
 ```
 
 ---

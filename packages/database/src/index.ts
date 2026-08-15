@@ -8,3 +8,4 @@ export * from "./repositories/followup.repository.js";
 export * from "./repositories/visit.repository.js";
 export * from "./repositories/property.repository.js";
 export * from "./repositories/pilot.repository.js";
+export * from "./repositories/saas.repository.js";

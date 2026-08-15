@@ -40,3 +40,37 @@ export const VISIT_STATUSES = [
 ] as const;
 
 export const PROPERTY_STATUSES = ["AVAILABLE", "RENTED", "SOLD", "RESERVED"] as const;
+
+export const PLANS = ["INDIVIDUAL", "TEAM", "BUSINESS"] as const;
+
+export const PLAN_LIMITS = {
+  INDIVIDUAL: {
+    maxUsers: 1,
+    maxChannels: 1,
+    maxLeadsPerMonth: 100,
+    features: ["Locação prioritária", "Follow-up automático básico", "CRM conversacional"],
+  },
+  TEAM: {
+    maxUsers: 5,
+    maxChannels: 2,
+    maxLeadsPerMonth: 500,
+    features: [
+      "Múltiplos corretores",
+      "Roteamento de leads",
+      "Relatórios de equipe",
+      "Locação e Venda",
+    ],
+  },
+  BUSINESS: {
+    maxUsers: 9999,
+    maxChannels: 10,
+    maxLeadsPerMonth: 999999,
+    features: [
+      "Usuários ilimitados",
+      "Múltiplos times",
+      "Branding customizado",
+      "Sincronização com CRM externo",
+      "API dedicada",
+    ],
+  },
+} as const;
