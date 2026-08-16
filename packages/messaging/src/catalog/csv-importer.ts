@@ -2,9 +2,7 @@ import type { CreatePropertyInput } from "@nexora/database";
 
 export class CsvPropertyImporter {
   /**
-   * Converte texto CSV em array de CreatePropertyInput validados.
-   * Formato esperado no cabeçalho:
-   * external_id,title,transaction_type,property_type,city,neighborhood,price,condo_fee,bedrooms,bathrooms,parking_spaces,pets_allowed,url,main_image_url
+   * Converte texto CSV em array de CreatePropertyInput validados com suporte a aspas e vírgulas internas.
    */
   parseCsv(csvContent: string): CreatePropertyInput[] {
     const lines = csvContent
@@ -16,15 +14,12 @@ export class CsvPropertyImporter {
       return [];
     }
 
-    const header = lines[0]!
-      .toLowerCase()
-      .split(",")
-      .map((h) => h.trim());
+    const header = this.splitCsvLine(lines[0]!).map((h) => h.toLowerCase());
     const properties: CreatePropertyInput[] = [];
 
     for (let i = 1; i < lines.length; i++) {
       const line = lines[i]!;
-      const cols = line.split(",").map((c) => c.trim().replace(/^["']|["']$/g, ""));
+      const cols = this.splitCsvLine(line);
 
       const row: Record<string, string> = {};
       header.forEach((h, idx) => {
@@ -32,14 +27,14 @@ export class CsvPropertyImporter {
       });
 
       if (!row["title"] || !row["city"] || !row["price"]) {
-        continue; // Pular linhas inválidas sem campos obrigatórios
+        continue;
       }
 
       const txRaw = (row["transaction_type"] || "RENT").toUpperCase();
       const transactionType = txRaw.includes("BUY") || txRaw.includes("VENDA") ? "BUY" : "RENT";
 
       properties.push({
-        externalId: row["external_id"] || null,
+        externalId: row["external_id"] || row["code"] || null,
         title: row["title"],
         transactionType,
         propertyType: row["property_type"] || "Apartamento",
@@ -55,11 +50,34 @@ export class CsvPropertyImporter {
           row["pets_allowed"] === "1" ||
           row["pets_allowed"]?.toLowerCase() === "sim",
         url: row["url"] || null,
-        mainImageUrl: row["main_image_url"] || null,
+        mainImageUrl: row["main_image_url"] || row["images"] || null,
         status: "AVAILABLE",
       });
     }
 
     return properties;
+  }
+
+  /**
+   * Divide uma linha CSV respeitando strings entre aspas.
+   */
+  private splitCsvLine(text: string): string[] {
+    const result: string[] = [];
+    let cur = "";
+    let inQuotes = false;
+
+    for (let i = 0; i < text.length; i++) {
+      const char = text[i];
+      if (char === '"') {
+        inQuotes = !inQuotes;
+      } else if (char === "," && !inQuotes) {
+        result.push(cur.trim().replace(/^["']|["']$/g, ""));
+        cur = "";
+      } else {
+        cur += char;
+      }
+    }
+    result.push(cur.trim().replace(/^["']|["']$/g, ""));
+    return result;
   }
 }
