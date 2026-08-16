@@ -3,20 +3,26 @@ import { IntentClassifier } from "./intent-classifier.js";
 import { StructuredExtractor } from "./structured-extractor.js";
 import { NextActionPolicy } from "./next-action-policy.js";
 import { ResponseGenerator } from "./response-generator.js";
+import { GeminiClient } from "./gemini-client.js";
 
 export class ConversationEngine {
   private classifier: IntentClassifier;
   private extractor: StructuredExtractor;
   private policy: NextActionPolicy;
   private generator: ResponseGenerator;
+  private geminiClient: GeminiClient;
 
   constructor() {
     this.classifier = new IntentClassifier();
     this.extractor = new StructuredExtractor();
     this.policy = new NextActionPolicy();
     this.generator = new ResponseGenerator();
+    this.geminiClient = new GeminiClient();
   }
 
+  /**
+   * Processamento síncrono baseado em regras determinísticas e guardrails.
+   */
   processMessage(context: AIExecutionContext): {
     response: GeneratedResponse;
     aiRun: AIRunRecord;
@@ -75,5 +81,38 @@ export class ConversationEngine {
     };
 
     return { response, aiRun };
+  }
+
+  /**
+   * Processamento assíncrono com suporte ao Google Gemini (com fallback automático).
+   */
+  async processMessageAsync(context: AIExecutionContext): Promise<{
+    response: GeneratedResponse;
+    aiRun: AIRunRecord;
+  }> {
+    const startTime = Date.now();
+
+    if (this.geminiClient.isConfigured) {
+      const geminiResult = await this.geminiClient.generateResponse(context);
+      if (geminiResult) {
+        const latencyMs = Date.now() - startTime;
+        const aiRun: AIRunRecord = {
+          tenantId: context.tenantId,
+          conversationId: context.conversationId,
+          leadId: context.leadId,
+          intent: geminiResult.intent,
+          confidence: geminiResult.confidence,
+          extractedData: geminiResult.extractedProfile,
+          promptTokens: Math.ceil(context.lastMessageText.length / 4),
+          completionTokens: Math.ceil(geminiResult.text.length / 4),
+          latencyMs,
+          model: "gemini-1.5-flash",
+        };
+        return { response: geminiResult, aiRun };
+      }
+    }
+
+    // Fallback determinístico
+    return this.processMessage(context);
   }
 }
