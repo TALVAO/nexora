@@ -15,7 +15,9 @@
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,css,yml,yaml}\"",
-    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,css,yml,yaml}\""
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,css,yml,yaml}\"",
+    "db:test:up": "node scripts/db-test-up.mjs",
+    "db:test:down": "docker rm -f nexora-test-db"
   },
   "devDependencies": {
     "@types/node": "^22.13.4",

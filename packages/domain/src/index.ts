@@ -1,5 +1,7 @@
 import type { BaseEntity, Stage, AutomationMode } from "@nexora/shared";
 
+export * from "./availability.js";
+
 export interface Tenant extends BaseEntity {
   name: string;
   slug: string;

@@ -82,6 +82,26 @@ Acesse:
 
 ---
 
+## 🖥️ Rotas do Painel (apps/web)
+
+`apps/web/src/app` organiza as telas do corretor em dois grupos de rotas:
+
+- **`(auth)`** — tela pública de login (`/login`). Não existe auto-cadastro
+  nesta etapa: contas do piloto são provisionadas manualmente no banco via
+  Supabase Auth, uma por corretor.
+- **`(app)`** — inbox, funil, agenda, imóveis, ficha do lead e configurações.
+  `middleware.ts` exige sessão real do Supabase Auth: sem sessão, qualquer
+  rota desse grupo redireciona para `/login`; com sessão ativa, `/login`
+  redireciona para `/inbox`.
+
+Para o login funcionar de verdade (contra um projeto Supabase real), defina em
+`.env` as mesmas variáveis públicas já documentadas em `.env.example`:
+`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` e
+`NEXT_PUBLIC_API_URL`. Com os valores `placeholder-*` do exemplo, o cliente de
+API e o middleware não conseguem validar nenhuma sessão.
+
+---
+
 ## 🧪 Qualidade e Testes
 
 O repositório possui regras estritas de qualidade:

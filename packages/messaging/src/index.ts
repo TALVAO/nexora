@@ -8,3 +8,5 @@ export * from "./followup/followup-scheduler.js";
 export * from "./visits/visit-service.js";
 export * from "./catalog/property-matcher.js";
 export * from "./catalog/csv-importer.js";
+export * from "./catalog/vrsync-importer.js";
+export * from "./security/webhook-signature.js";

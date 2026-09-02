@@ -7,6 +7,7 @@ import {
   type BrandingSettings,
 } from "@nexora/database";
 import { type PlanType, PLANS, PLAN_LIMITS } from "@nexora/shared";
+import { tenantContext, ROLES_ADMIN, ROLES_OWNER_ONLY } from "../plugins/auth.js";
 
 export interface SaasPluginOptions {
   saasRepo?: SaasRepository;
@@ -20,29 +21,34 @@ export const saasRoutes: FastifyPluginAsync<SaasPluginOptions> = async (fastify,
   // ----------------------------------------------------------------------------
   // Catálogo Público de Planos Comerciais
   // ----------------------------------------------------------------------------
-  fastify.get("/api/saas/plans", async (_request: FastifyRequest, reply: FastifyReply) => {
-    const plans = PLANS.map((p) => ({
-      id: p,
-      name:
-        p === "INDIVIDUAL"
-          ? "Corretor Autônomo"
-          : p === "TEAM"
-            ? "Equipe / Time"
-            : "Imobiliária Enterprise",
-      limits: PLAN_LIMITS[p],
-    }));
+  fastify.get(
+    "/api/saas/plans",
+    { config: { access: "public" as const } },
+    async (_request: FastifyRequest, reply: FastifyReply) => {
+      const plans = PLANS.map((p) => ({
+        id: p,
+        name:
+          p === "INDIVIDUAL"
+            ? "Corretor Autônomo"
+            : p === "TEAM"
+              ? "Equipe / Time"
+              : "Imobiliária Enterprise",
+        limits: PLAN_LIMITS[p],
+      }));
 
-    return reply.status(200).send({
-      success: true,
-      plans,
-    });
-  });
+      return reply.status(200).send({
+        success: true,
+        plans,
+      });
+    },
+  );
 
   // ----------------------------------------------------------------------------
   // Onboarding Self-Service (Criação de Tenant + Owner + Plano)
   // ----------------------------------------------------------------------------
   fastify.post(
     "/api/saas/onboarding",
+    { config: { access: "authenticated" as const } },
     async (
       request: FastifyRequest<{
         Body: OnboardingInput;
@@ -81,53 +87,39 @@ export const saasRoutes: FastifyPluginAsync<SaasPluginOptions> = async (fastify,
   // ----------------------------------------------------------------------------
   // Consultar Assinatura e Consumo de Limites do Tenant
   // ----------------------------------------------------------------------------
-  fastify.get(
-    "/api/saas/subscription",
-    async (
-      request: FastifyRequest<{
-        Headers: { "x-tenant-id"?: string };
-      }>,
-      reply: FastifyReply,
-    ) => {
-      const tenantId =
-        request.headers["x-tenant-id"] ||
-        process.env.DEFAULT_TENANT_ID ||
-        "a0000000-0000-0000-0000-000000000001";
+  fastify.get("/api/saas/subscription", async (request: FastifyRequest, reply: FastifyReply) => {
+    const { tenantId } = tenantContext(request);
 
-      try {
-        const subscription = await saasRepo.getSubscription(tenantId);
+    try {
+      const subscription = await saasRepo.getSubscription(tenantId);
 
-        return reply.status(200).send({
-          success: true,
-          subscription,
-        });
-      } catch (err: unknown) {
-        request.log.error(err, "Erro ao obter assinatura");
-        return reply.status(500).send({
-          success: false,
-          error: err instanceof Error ? err.message : "Erro ao obter assinatura",
-        });
-      }
-    },
-  );
+      return reply.status(200).send({
+        success: true,
+        subscription,
+      });
+    } catch (err: unknown) {
+      request.log.error(err, "Erro ao obter assinatura");
+      return reply.status(500).send({
+        success: false,
+        error: err instanceof Error ? err.message : "Erro ao obter assinatura",
+      });
+    }
+  });
 
   // ----------------------------------------------------------------------------
   // Upgrade ou Troca de Plano Comercial
   // ----------------------------------------------------------------------------
   fastify.post(
     "/api/saas/subscription/upgrade",
+    { config: { roles: ROLES_OWNER_ONLY } },
     async (
       request: FastifyRequest<{
         Body: { plan: PlanType };
-        Headers: { "x-tenant-id"?: string; "x-user-id"?: string };
       }>,
       reply: FastifyReply,
     ) => {
-      const tenantId =
-        request.headers["x-tenant-id"] ||
-        process.env.DEFAULT_TENANT_ID ||
-        "a0000000-0000-0000-0000-000000000001";
-      const userId = request.headers["x-user-id"];
+      const { tenantId } = tenantContext(request);
+      const userId = request.auth.profileId ?? undefined;
 
       const { plan } = request.body;
       if (!plan || !PLANS.includes(plan)) {
@@ -159,18 +151,15 @@ export const saasRoutes: FastifyPluginAsync<SaasPluginOptions> = async (fastify,
   // ----------------------------------------------------------------------------
   fastify.post(
     "/api/saas/members/invite",
+    { config: { roles: ROLES_ADMIN } },
     async (
       request: FastifyRequest<{
         Body: InviteMemberInput;
-        Headers: { "x-tenant-id"?: string; "x-user-id"?: string };
       }>,
       reply: FastifyReply,
     ) => {
-      const tenantId =
-        request.headers["x-tenant-id"] ||
-        process.env.DEFAULT_TENANT_ID ||
-        "a0000000-0000-0000-0000-000000000001";
-      const actorUserId = request.headers["x-user-id"];
+      const { tenantId } = tenantContext(request);
+      const actorUserId = request.auth.profileId ?? undefined;
 
       const { name, email, role } = request.body;
       if (!name || !email || !role) {
@@ -202,16 +191,9 @@ export const saasRoutes: FastifyPluginAsync<SaasPluginOptions> = async (fastify,
   // ----------------------------------------------------------------------------
   fastify.get(
     "/api/saas/members",
-    async (
-      request: FastifyRequest<{
-        Headers: { "x-tenant-id"?: string };
-      }>,
-      reply: FastifyReply,
-    ) => {
-      const tenantId =
-        request.headers["x-tenant-id"] ||
-        process.env.DEFAULT_TENANT_ID ||
-        "a0000000-0000-0000-0000-000000000001";
+    { config: { roles: ROLES_ADMIN } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { tenantId } = tenantContext(request);
 
       try {
         const members = await tenantRepo.listMembers(tenantId);
@@ -235,18 +217,15 @@ export const saasRoutes: FastifyPluginAsync<SaasPluginOptions> = async (fastify,
   // ----------------------------------------------------------------------------
   fastify.patch(
     "/api/saas/settings/branding",
+    { config: { roles: ROLES_OWNER_ONLY } },
     async (
       request: FastifyRequest<{
         Body: BrandingSettings;
-        Headers: { "x-tenant-id"?: string; "x-user-id"?: string };
       }>,
       reply: FastifyReply,
     ) => {
-      const tenantId =
-        request.headers["x-tenant-id"] ||
-        process.env.DEFAULT_TENANT_ID ||
-        "a0000000-0000-0000-0000-000000000001";
-      const actorUserId = request.headers["x-user-id"];
+      const { tenantId } = tenantContext(request);
+      const actorUserId = request.auth.profileId ?? undefined;
 
       try {
         const result = await saasRepo.updateBranding(tenantId, request.body, actorUserId);
@@ -270,17 +249,14 @@ export const saasRoutes: FastifyPluginAsync<SaasPluginOptions> = async (fastify,
   // ----------------------------------------------------------------------------
   fastify.get(
     "/api/saas/audit-logs",
+    { config: { roles: ROLES_ADMIN } },
     async (
       request: FastifyRequest<{
         Querystring: { limit?: string };
-        Headers: { "x-tenant-id"?: string };
       }>,
       reply: FastifyReply,
     ) => {
-      const tenantId =
-        request.headers["x-tenant-id"] ||
-        process.env.DEFAULT_TENANT_ID ||
-        "a0000000-0000-0000-0000-000000000001";
+      const { tenantId } = tenantContext(request);
 
       const limit = Number(request.query.limit) || 50;
 

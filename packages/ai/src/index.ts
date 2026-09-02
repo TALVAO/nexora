@@ -5,3 +5,4 @@ export * from "./next-action-policy.js";
 export * from "./response-generator.js";
 export * from "./gemini-client.js";
 export * from "./conversation-engine.js";
+export * from "./conversation-summarizer.js";

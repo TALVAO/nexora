@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { buildApp } from "../app.js";
+import { authHeaders, createAuthTestTenantRepo } from "../test-utils/auth.js";
 import { VisitRepository, LeadRepository, type VisitRow } from "@nexora/database";
 import { VisitService } from "@nexora/messaging";
 
@@ -31,7 +32,12 @@ describe("Visits API Routes Integration (Etapa 7)", () => {
     visitRepo = new VisitRepository();
     leadRepo = new LeadRepository();
     visitService = new VisitService({ visitRepo, leadRepo });
-    app = await buildApp({ visitRepo, leadRepo, visitService });
+    app = await buildApp({
+      visitRepo,
+      leadRepo,
+      visitService,
+      tenantRepo: createAuthTestTenantRepo(),
+    });
     await app.ready();
   });
 
@@ -46,7 +52,7 @@ describe("Visits API Routes Integration (Etapa 7)", () => {
       const response = await app.inject({
         method: "GET",
         url: "/api/visits?status=SCHEDULED",
-        headers: { "x-tenant-id": testTenantId },
+        headers: authHeaders(app),
       });
 
       expect(response.statusCode).toBe(200);
@@ -64,7 +70,7 @@ describe("Visits API Routes Integration (Etapa 7)", () => {
       const response = await app.inject({
         method: "GET",
         url: `/api/visits/${testVisitId}`,
-        headers: { "x-tenant-id": testTenantId },
+        headers: authHeaders(app),
       });
 
       expect(response.statusCode).toBe(200);
@@ -79,7 +85,7 @@ describe("Visits API Routes Integration (Etapa 7)", () => {
       const response = await app.inject({
         method: "GET",
         url: `/api/visits/non-existent`,
-        headers: { "x-tenant-id": testTenantId },
+        headers: authHeaders(app),
       });
 
       expect(response.statusCode).toBe(404);
@@ -93,7 +99,7 @@ describe("Visits API Routes Integration (Etapa 7)", () => {
       const response = await app.inject({
         method: "POST",
         url: "/api/visits",
-        headers: { "x-tenant-id": testTenantId },
+        headers: authHeaders(app),
         payload: {
           leadId: testLeadId,
           scheduledAt: new Date(Date.now() + 86400000).toISOString(),
@@ -119,7 +125,7 @@ describe("Visits API Routes Integration (Etapa 7)", () => {
       const response = await app.inject({
         method: "POST",
         url: `/api/visits/${testVisitId}/reschedule`,
-        headers: { "x-tenant-id": testTenantId },
+        headers: authHeaders(app),
         payload: {
           scheduledAt: newDate,
           reason: "Cliente pediu para trocar para domingo",
@@ -143,7 +149,7 @@ describe("Visits API Routes Integration (Etapa 7)", () => {
       const response = await app.inject({
         method: "POST",
         url: `/api/visits/${testVisitId}/cancel`,
-        headers: { "x-tenant-id": testTenantId },
+        headers: authHeaders(app),
         payload: {
           reason: "Imóvel já alugado por outro cliente",
         },
@@ -166,7 +172,7 @@ describe("Visits API Routes Integration (Etapa 7)", () => {
       const response = await app.inject({
         method: "POST",
         url: `/api/visits/${testVisitId}/complete`,
-        headers: { "x-tenant-id": testTenantId },
+        headers: authHeaders(app),
         payload: {
           feedback: "Adorou o condomínio",
         },
@@ -190,7 +196,7 @@ describe("Visits API Routes Integration (Etapa 7)", () => {
       const response = await app.inject({
         method: "POST",
         url: `/api/visits/${testVisitId}/no-show`,
-        headers: { "x-tenant-id": testTenantId },
+        headers: authHeaders(app),
         payload: {
           reason: "Lead não atendeu celular no horário",
         },
@@ -213,7 +219,7 @@ describe("Visits API Routes Integration (Etapa 7)", () => {
       const response = await app.inject({
         method: "POST",
         url: `/api/visits/${testVisitId}/feedback`,
-        headers: { "x-tenant-id": testTenantId },
+        headers: authHeaders(app),
         payload: {
           feedback: "Cliente achou o valor do condomínio alto",
         },

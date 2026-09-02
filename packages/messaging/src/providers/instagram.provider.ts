@@ -8,6 +8,11 @@ import type {
   NormalizedMessage,
   MessageType,
 } from "../types.js";
+import {
+  verifyMetaSignature,
+  type WebhookVerificationInput,
+  type WebhookVerificationResult,
+} from "../security/webhook-signature.js";
 
 export interface InstagramWebhookPayload {
   object?: string;
@@ -261,5 +266,15 @@ export class InstagramMessagingProvider implements MessagingProvider {
       status: "SENT",
       timestamp: new Date().toISOString(),
     };
+  }
+
+  /** `entry[0].id` é a conta do Instagram que recebeu a mensagem. */
+  extractAccountId(payload: unknown): string | null {
+    const raw = payload as InstagramWebhookPayload;
+    return raw?.entry?.[0]?.id?.trim() || null;
+  }
+
+  verifyWebhookSignature(input: WebhookVerificationInput): WebhookVerificationResult {
+    return verifyMetaSignature(input);
   }
 }

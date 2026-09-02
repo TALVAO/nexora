@@ -4,6 +4,41 @@ import { IntentClassifier } from "../intent-classifier.js";
 import { StructuredExtractor } from "../structured-extractor.js";
 import { NextActionPolicy } from "../next-action-policy.js";
 import type { AIExecutionContext } from "../types.js";
+import {
+  DEFAULT_PROPERTY_TYPES,
+  DEFAULT_RENTAL_GUARANTEES,
+  normalizeTerm,
+  type TenantVocabulary,
+  type LocationTerm,
+} from "@nexora/shared";
+
+/** Monta a geografia de um tenant como ela viria do banco. */
+function locations(city: string, neighborhoods: string[]): TenantVocabulary {
+  const toTerm = (name: string, parent?: string): LocationTerm => ({
+    canonical: name,
+    normalized: normalizeTerm(name),
+    aliases: [],
+    parentCityNormalized: parent ? normalizeTerm(parent) : null,
+  });
+
+  return {
+    cities: [toTerm(city)],
+    neighborhoods: neighborhoods.map((n) => toTerm(n, city)),
+    propertyTypes: DEFAULT_PROPERTY_TYPES,
+    rentalGuarantees: DEFAULT_RENTAL_GUARANTEES,
+  };
+}
+
+/** Tenant piloto: a geografia dele vive em dados, não no código. */
+const VOCAB_JUNDIAI = locations("Jundiaí", [
+  "Eloy Chaves",
+  "Retiro",
+  "Centro",
+  "Vila Arens",
+  "Medeiros",
+  "Anhangabaú",
+  "Jardim do Trevo",
+]);
 
 describe("Conversation Engine & Mandatory AI Test Dataset (Etapa 4)", () => {
   let engine: ConversationEngine;
@@ -16,6 +51,7 @@ describe("Conversation Engine & Mandatory AI Test Dataset (Etapa 4)", () => {
     leadId: "lead-001",
     conversationId: "conv-001",
     lastMessageText: "",
+    vocabulary: VOCAB_JUNDIAI,
   };
 
   beforeEach(() => {
@@ -109,7 +145,7 @@ describe("Conversation Engine & Mandatory AI Test Dataset (Etapa 4)", () => {
   // 8. Orçamento com Texto
   it("8. Orçamento com Texto: parses spoken numbers like '4 mil e quinhentos'", () => {
     const text = "meu limite é uns 4 mil e quinhentos por mês";
-    const extraction = extractor.extract(text);
+    const extraction = extractor.extract(text, undefined, VOCAB_JUNDIAI);
 
     expect(extraction.profile.maxBudget).toBe(4500);
   });
@@ -117,7 +153,7 @@ describe("Conversation Engine & Mandatory AI Test Dataset (Etapa 4)", () => {
   // 9. Bairro Múltiplo
   it("9. Bairro Múltiplo: captures multiple neighborhoods into array", () => {
     const text = "Pode ser no Centro, Vila Arens ou Jardim do Trevo";
-    const extraction = extractor.extract(text);
+    const extraction = extractor.extract(text, undefined, VOCAB_JUNDIAI);
 
     expect(extraction.profile.neighborhoods).toContain("Centro");
     expect(extraction.profile.neighborhoods).toContain("Vila Arens");

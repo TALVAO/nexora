@@ -8,6 +8,11 @@ import type {
   NormalizedMessage,
   MessageType,
 } from "../types.js";
+import {
+  verifyMetaSignature,
+  type WebhookVerificationInput,
+  type WebhookVerificationResult,
+} from "../security/webhook-signature.js";
 
 export interface MetaWebhookPayload {
   object?: string;
@@ -149,5 +154,15 @@ export class MetaWhatsAppCloudProvider implements MessagingProvider {
       status: (statusObj?.status?.toUpperCase() as DeliveryStatus["status"]) || "DELIVERED",
       timestamp: new Date().toISOString(),
     };
+  }
+
+  /** `phone_number_id` identifica qual número WhatsApp recebeu a mensagem. */
+  extractAccountId(payload: unknown): string | null {
+    const raw = payload as MetaWebhookPayload;
+    return raw?.entry?.[0]?.changes?.[0]?.value?.metadata?.phone_number_id?.trim() || null;
+  }
+
+  verifyWebhookSignature(input: WebhookVerificationInput): WebhookVerificationResult {
+    return verifyMetaSignature(input);
   }
 }

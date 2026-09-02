@@ -41,6 +41,18 @@ export const VISIT_STATUSES = [
 
 export const PROPERTY_STATUSES = ["AVAILABLE", "RENTED", "SOLD", "RESERVED"] as const;
 
+/**
+ * De onde veio a última afirmação sobre a disponibilidade de um imóvel
+ * (`properties.availability_source`, migration 05). Espelha o enum
+ * `availability_source` do Postgres.
+ */
+export const AVAILABILITY_SOURCES = [
+  "MANUAL",
+  "XML_FEED",
+  "CRM_API",
+  "AGENT_CONFIRMED",
+] as const;
+
 export const PLANS = ["INDIVIDUAL", "TEAM", "BUSINESS"] as const;
 
 export const PLAN_LIMITS = {

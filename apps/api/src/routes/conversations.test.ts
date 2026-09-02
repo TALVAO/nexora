@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { buildApp } from "../app.js";
+import { authHeaders, createAuthTestTenantRepo } from "../test-utils/auth.js";
 import { MessageGateway, EvolutionWhatsAppProvider } from "@nexora/messaging";
 import { MessageRepository, type MessageRow } from "@nexora/database";
 
@@ -18,7 +19,12 @@ describe("Conversations and WhatsApp Outbound API Integration", () => {
     messageRepo = new MessageRepository();
     evolutionProvider = new EvolutionWhatsAppProvider();
 
-    app = await buildApp({ gateway, messageRepo, evolutionProvider });
+    app = await buildApp({
+      gateway,
+      messageRepo,
+      evolutionProvider,
+      tenantRepo: createAuthTestTenantRepo(),
+    });
     await app.ready();
   });
 
@@ -56,7 +62,7 @@ describe("Conversations and WhatsApp Outbound API Integration", () => {
       const response = await app.inject({
         method: "POST",
         url: `/api/conversations/${testConversationId}/messages`,
-        headers: { "x-tenant-id": testTenantId },
+        headers: authHeaders(app),
         payload: {
           text: "Olá, recebemos sua mensagem. Vamos verificar o imóvel para você!",
         },
@@ -99,7 +105,7 @@ describe("Conversations and WhatsApp Outbound API Integration", () => {
       const response = await app.inject({
         method: "POST",
         url: `/api/conversations/${testConversationId}/messages`,
-        headers: { "x-tenant-id": testTenantId },
+        headers: authHeaders(app),
         payload: {
           mediaUrl: "https://example.com/fachada.jpg",
           caption: "Foto da fachada do imóvel",
@@ -118,7 +124,7 @@ describe("Conversations and WhatsApp Outbound API Integration", () => {
       const response = await app.inject({
         method: "POST",
         url: `/api/conversations/${testConversationId}/messages`,
-        headers: { "x-tenant-id": testTenantId },
+        headers: authHeaders(app),
         payload: {},
       });
 
@@ -158,7 +164,7 @@ describe("Conversations and WhatsApp Outbound API Integration", () => {
       const response = await app.inject({
         method: "GET",
         url: `/api/conversations/${testConversationId}/messages`,
-        headers: { "x-tenant-id": testTenantId },
+        headers: authHeaders(app),
       });
 
       expect(response.statusCode).toBe(200);
@@ -180,6 +186,7 @@ describe("Conversations and WhatsApp Outbound API Integration", () => {
       const response = await app.inject({
         method: "GET",
         url: "/api/channels/status",
+        headers: authHeaders(app),
       });
 
       expect(response.statusCode).toBe(200);

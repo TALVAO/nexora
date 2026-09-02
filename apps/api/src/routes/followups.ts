@@ -2,6 +2,7 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from "fastify";
 import { FollowupRepository, LeadRepository } from "@nexora/database";
 import { FollowupScheduler } from "@nexora/messaging";
 import type { FollowupStatus } from "@nexora/shared";
+import { tenantContext, ROLES_ADMIN } from "../plugins/auth.js";
 
 export interface FollowupPluginOptions {
   followupRepo?: FollowupRepository;
@@ -26,14 +27,10 @@ export const followupRoutes: FastifyPluginAsync<FollowupPluginOptions> = async (
           leadId?: string;
           limit?: string;
         };
-        Headers: { "x-tenant-id"?: string };
       }>,
       reply: FastifyReply,
     ) => {
-      const tenantId =
-        request.headers["x-tenant-id"] ||
-        process.env.DEFAULT_TENANT_ID ||
-        "a0000000-0000-0000-0000-000000000001";
+      const { tenantId } = tenantContext(request);
 
       const { status, leadId } = request.query;
       const limit = Number(request.query.limit) || 50;
@@ -69,14 +66,10 @@ export const followupRoutes: FastifyPluginAsync<FollowupPluginOptions> = async (
           stepId?: string | null;
           scheduledAt: string;
         };
-        Headers: { "x-tenant-id"?: string };
       }>,
       reply: FastifyReply,
     ) => {
-      const tenantId =
-        request.headers["x-tenant-id"] ||
-        process.env.DEFAULT_TENANT_ID ||
-        "a0000000-0000-0000-0000-000000000001";
+      const { tenantId } = tenantContext(request);
 
       const { leadId, conversationId, sequenceId, stepId, scheduledAt } = request.body;
 
@@ -116,15 +109,11 @@ export const followupRoutes: FastifyPluginAsync<FollowupPluginOptions> = async (
       request: FastifyRequest<{
         Params: { id: string };
         Body: { reason?: string };
-        Headers: { "x-tenant-id"?: string };
       }>,
       reply: FastifyReply,
     ) => {
       const { id } = request.params;
-      const tenantId =
-        request.headers["x-tenant-id"] ||
-        process.env.DEFAULT_TENANT_ID ||
-        "a0000000-0000-0000-0000-000000000001";
+      const { tenantId } = tenantContext(request);
 
       const reason = request.body?.reason || "Cancelamento manual solicitado pelo corretor";
 
@@ -156,16 +145,9 @@ export const followupRoutes: FastifyPluginAsync<FollowupPluginOptions> = async (
   // ----------------------------------------------------------------------------
   fastify.post(
     "/api/followups/process",
-    async (
-      request: FastifyRequest<{
-        Headers: { "x-tenant-id"?: string };
-      }>,
-      reply: FastifyReply,
-    ) => {
-      const tenantId =
-        request.headers["x-tenant-id"] ||
-        process.env.DEFAULT_TENANT_ID ||
-        "a0000000-0000-0000-0000-000000000001";
+    { config: { roles: ROLES_ADMIN } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { tenantId } = tenantContext(request);
 
       try {
         const stats = await scheduler.processDueJobs({ tenantId }, "api-worker");
@@ -187,33 +169,22 @@ export const followupRoutes: FastifyPluginAsync<FollowupPluginOptions> = async (
   // ----------------------------------------------------------------------------
   // Listar Sequências de Follow-up
   // ----------------------------------------------------------------------------
-  fastify.get(
-    "/api/followups/sequences",
-    async (
-      request: FastifyRequest<{
-        Headers: { "x-tenant-id"?: string };
-      }>,
-      reply: FastifyReply,
-    ) => {
-      const tenantId =
-        request.headers["x-tenant-id"] ||
-        process.env.DEFAULT_TENANT_ID ||
-        "a0000000-0000-0000-0000-000000000001";
+  fastify.get("/api/followups/sequences", async (request: FastifyRequest, reply: FastifyReply) => {
+    const { tenantId } = tenantContext(request);
 
-      try {
-        const sequences = await followupRepo.listSequences({ tenantId });
+    try {
+      const sequences = await followupRepo.listSequences({ tenantId });
 
-        return reply.status(200).send({
-          success: true,
-          sequences,
-        });
-      } catch (err: unknown) {
-        request.log.error(err, "Erro ao listar sequências de follow-up");
-        return reply.status(500).send({
-          success: false,
-          error: err instanceof Error ? err.message : "Erro ao listar sequências",
-        });
-      }
-    },
-  );
+      return reply.status(200).send({
+        success: true,
+        sequences,
+      });
+    } catch (err: unknown) {
+      request.log.error(err, "Erro ao listar sequências de follow-up");
+      return reply.status(500).send({
+        success: false,
+        error: err instanceof Error ? err.message : "Erro ao listar sequências",
+      });
+    }
+  });
 };

@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from "fastify";
 import { LeadRepository, VisitRepository } from "@nexora/database";
 import { CRMSyncService, type CRMSyncMode, type TenantCRMConfig } from "@nexora/crm";
+import { tenantContext, ROLES_ADMIN } from "../plugins/auth.js";
 
 export interface CRMPluginOptions {
   leadRepo?: LeadRepository;
@@ -16,32 +17,22 @@ export const crmRoutes: FastifyPluginAsync<CRMPluginOptions> = async (fastify, o
   // ----------------------------------------------------------------------------
   // Obter Configuração de Sincronização CRM
   // ----------------------------------------------------------------------------
-  fastify.get(
-    "/api/crm/config",
-    async (
-      request: FastifyRequest<{
-        Headers: { "x-tenant-id"?: string };
-      }>,
-      reply: FastifyReply,
-    ) => {
-      const tenantId =
-        request.headers["x-tenant-id"] ||
-        process.env.DEFAULT_TENANT_ID ||
-        "a0000000-0000-0000-0000-000000000001";
+  fastify.get("/api/crm/config", async (request: FastifyRequest, reply: FastifyReply) => {
+    const { tenantId } = tenantContext(request);
 
-      const config = crmService.getConfig(tenantId);
-      return reply.status(200).send({
-        success: true,
-        config,
-      });
-    },
-  );
+    const config = crmService.getConfig(tenantId);
+    return reply.status(200).send({
+      success: true,
+      config,
+    });
+  });
 
   // ----------------------------------------------------------------------------
   // Atualizar Configuração de Sincronização CRM
   // ----------------------------------------------------------------------------
   fastify.post(
     "/api/crm/config",
+    { config: { roles: ROLES_ADMIN } },
     async (
       request: FastifyRequest<{
         Body: {
@@ -52,14 +43,10 @@ export const crmRoutes: FastifyPluginAsync<CRMPluginOptions> = async (fastify, o
           webhookUrl?: string;
           customHeaders?: Record<string, string>;
         };
-        Headers: { "x-tenant-id"?: string };
       }>,
       reply: FastifyReply,
     ) => {
-      const tenantId =
-        request.headers["x-tenant-id"] ||
-        process.env.DEFAULT_TENANT_ID ||
-        "a0000000-0000-0000-0000-000000000001";
+      const { tenantId } = tenantContext(request);
 
       const { mode, isEnabled = true, apiUrl, apiKey, webhookUrl, customHeaders } = request.body;
 
@@ -97,15 +84,11 @@ export const crmRoutes: FastifyPluginAsync<CRMPluginOptions> = async (fastify, o
     async (
       request: FastifyRequest<{
         Params: { id: string };
-        Headers: { "x-tenant-id"?: string };
       }>,
       reply: FastifyReply,
     ) => {
       const { id: leadId } = request.params;
-      const tenantId =
-        request.headers["x-tenant-id"] ||
-        process.env.DEFAULT_TENANT_ID ||
-        "a0000000-0000-0000-0000-000000000001";
+      const { tenantId } = tenantContext(request);
 
       try {
         const lead360 = await leadRepo.findLead360({ tenantId }, leadId);
@@ -164,15 +147,11 @@ export const crmRoutes: FastifyPluginAsync<CRMPluginOptions> = async (fastify, o
     async (
       request: FastifyRequest<{
         Params: { id: string };
-        Headers: { "x-tenant-id"?: string };
       }>,
       reply: FastifyReply,
     ) => {
       const { id: visitId } = request.params;
-      const tenantId =
-        request.headers["x-tenant-id"] ||
-        process.env.DEFAULT_TENANT_ID ||
-        "a0000000-0000-0000-0000-000000000001";
+      const { tenantId } = tenantContext(request);
 
       try {
         const visit = await visitRepo.findById({ tenantId }, visitId);
@@ -209,44 +188,33 @@ export const crmRoutes: FastifyPluginAsync<CRMPluginOptions> = async (fastify, o
   // ----------------------------------------------------------------------------
   // Exportar Leads Qualificados em CSV para CRM Legado
   // ----------------------------------------------------------------------------
-  fastify.get(
-    "/api/crm/export/csv",
-    async (
-      request: FastifyRequest<{
-        Headers: { "x-tenant-id"?: string };
-      }>,
-      reply: FastifyReply,
-    ) => {
-      const tenantId =
-        request.headers["x-tenant-id"] ||
-        process.env.DEFAULT_TENANT_ID ||
-        "a0000000-0000-0000-0000-000000000001";
+  fastify.get("/api/crm/export/csv", async (request: FastifyRequest, reply: FastifyReply) => {
+    const { tenantId } = tenantContext(request);
 
-      try {
-        const { leads } = await leadRepo.listWithFilters({ tenantId }, { limit: 1000 });
-        const inputs = leads.map((l) => ({
-          leadId: l.id,
-          name: l.name,
-          phone: l.phone,
-          email: l.email,
-          instagramUserId: l.instagram_user_id,
-          stage: l.stage,
-          score: l.score,
-          temperature: l.temperature,
-        }));
+    try {
+      const { leads } = await leadRepo.listWithFilters({ tenantId }, { limit: 1000 });
+      const inputs = leads.map((l) => ({
+        leadId: l.id,
+        name: l.name,
+        phone: l.phone,
+        email: l.email,
+        instagramUserId: l.instagram_user_id,
+        stage: l.stage,
+        score: l.score,
+        temperature: l.temperature,
+      }));
 
-        const csvData = crmService.exportLeadsToCsv(inputs);
+      const csvData = crmService.exportLeadsToCsv(inputs);
 
-        reply.header("Content-Type", "text/csv");
-        reply.header("Content-Disposition", 'attachment; filename="leads-nexora-crm.csv"');
-        return reply.status(200).send(csvData);
-      } catch (err: unknown) {
-        request.log.error(err, "Erro ao exportar leads para CSV");
-        return reply.status(500).send({
-          success: false,
-          error: err instanceof Error ? err.message : "Erro ao exportar CSV",
-        });
-      }
-    },
-  );
+      reply.header("Content-Type", "text/csv");
+      reply.header("Content-Disposition", 'attachment; filename="leads-nexora-crm.csv"');
+      return reply.status(200).send(csvData);
+    } catch (err: unknown) {
+      request.log.error(err, "Erro ao exportar leads para CSV");
+      return reply.status(500).send({
+        success: false,
+        error: err instanceof Error ? err.message : "Erro ao exportar CSV",
+      });
+    }
+  });
 };

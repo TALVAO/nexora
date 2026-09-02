@@ -1,3 +1,8 @@
+import type {
+  WebhookVerificationInput,
+  WebhookVerificationResult,
+} from "./security/webhook-signature.js";
+
 import type { Channel } from "@nexora/shared";
 
 export type MessageType =
@@ -58,4 +63,16 @@ export interface MessagingProvider {
   sendMedia(input: SendMediaInput): Promise<SendResult>;
   normalizeInbound(payload: unknown, defaultTenantId?: string): NormalizedMessage;
   getDeliveryStatus(payload: unknown): DeliveryStatus;
+
+  /**
+   * Identificador da conta do provider dentro do payload — nome da instância,
+   * `phone_number_id`, id da conta do Instagram.
+   *
+   * É por ele que o tenant é descoberto em `channel_connections`. Fica no
+   * adapter porque só ele conhece o formato bruto do provider (CLAUDE.md §15).
+   */
+  extractAccountId(payload: unknown): string | null;
+
+  /** Prova que a requisição veio mesmo do provider, não de um terceiro. */
+  verifyWebhookSignature(input: WebhookVerificationInput): WebhookVerificationResult;
 }

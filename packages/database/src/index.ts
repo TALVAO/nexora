@@ -9,3 +9,5 @@ export * from "./repositories/visit.repository.js";
 export * from "./repositories/property.repository.js";
 export * from "./repositories/pilot.repository.js";
 export * from "./repositories/saas.repository.js";
+export * from "./repositories/vocabulary.repository.js";
+export * from "./repositories/channel-connection.repository.js";

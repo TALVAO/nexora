@@ -21,7 +21,8 @@
     "@nexora/ai": "*",
     "@nexora/database": "*",
     "@nexora/shared": "*",
-    "@nexora/validation": "*"
+    "@nexora/validation": "*",
+    "fast-xml-parser": "5.11.1"
   },
   "devDependencies": {
     "@types/node": "^22.13.4",

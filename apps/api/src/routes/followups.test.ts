@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { buildApp } from "../app.js";
+import { authHeaders, createAuthTestTenantRepo } from "../test-utils/auth.js";
 import {
   FollowupRepository,
   LeadRepository,
@@ -53,7 +54,12 @@ describe("Follow-up Engine API Routes Integration (Etapa 6)", () => {
     followupRepo = new FollowupRepository();
     leadRepo = new LeadRepository();
     scheduler = new FollowupScheduler({ followupRepo, leadRepo });
-    app = await buildApp({ followupRepo, leadRepo, scheduler });
+    app = await buildApp({
+      followupRepo,
+      leadRepo,
+      scheduler,
+      tenantRepo: createAuthTestTenantRepo(),
+    });
     await app.ready();
   });
 
@@ -68,7 +74,7 @@ describe("Follow-up Engine API Routes Integration (Etapa 6)", () => {
       const response = await app.inject({
         method: "GET",
         url: "/api/followups/jobs?status=PENDING",
-        headers: { "x-tenant-id": testTenantId },
+        headers: authHeaders(app),
       });
 
       expect(response.statusCode).toBe(200);
@@ -86,7 +92,7 @@ describe("Follow-up Engine API Routes Integration (Etapa 6)", () => {
       const response = await app.inject({
         method: "POST",
         url: "/api/followups/jobs",
-        headers: { "x-tenant-id": testTenantId },
+        headers: authHeaders(app),
         payload: {
           leadId: testLeadId,
           scheduledAt: new Date(Date.now() + 3600000).toISOString(),
@@ -104,7 +110,7 @@ describe("Follow-up Engine API Routes Integration (Etapa 6)", () => {
       const response = await app.inject({
         method: "POST",
         url: "/api/followups/jobs",
-        headers: { "x-tenant-id": testTenantId },
+        headers: authHeaders(app),
         payload: {
           leadId: "",
         },
@@ -121,7 +127,7 @@ describe("Follow-up Engine API Routes Integration (Etapa 6)", () => {
       const response = await app.inject({
         method: "POST",
         url: `/api/followups/jobs/job-api-1/cancel`,
-        headers: { "x-tenant-id": testTenantId },
+        headers: authHeaders(app),
         payload: {
           reason: "Lead agendou visita por telefone",
         },
@@ -146,7 +152,7 @@ describe("Follow-up Engine API Routes Integration (Etapa 6)", () => {
       const response = await app.inject({
         method: "POST",
         url: "/api/followups/process",
-        headers: { "x-tenant-id": testTenantId },
+        headers: authHeaders(app),
       });
 
       expect(response.statusCode).toBe(200);
@@ -165,7 +171,7 @@ describe("Follow-up Engine API Routes Integration (Etapa 6)", () => {
       const response = await app.inject({
         method: "GET",
         url: "/api/followups/sequences",
-        headers: { "x-tenant-id": testTenantId },
+        headers: authHeaders(app),
       });
 
       expect(response.statusCode).toBe(200);

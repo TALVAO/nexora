@@ -11,7 +11,16 @@ export class GeminiClient {
 
   constructor(config?: GeminiConfig) {
     this.apiKey = config?.apiKey || process.env.GEMINI_API_KEY || null;
-    this.model = config?.model || "gemini-1.5-flash";
+    // gemini-1.5-flash foi desativado pela Google (confirmado em 29/08/2026:
+    // a API responde 404 "is not found for API version v1beta"). gemini-3.6-flash
+    // é o substituto indicado pela própria mensagem de erro da Google para esta
+    // chave/versão de API — testado e funcionando nesta data.
+    this.model = config?.model || "gemini-3.6-flash";
+  }
+
+  /** Exposto para rótulos de auditoria (ex.: AIRunRecord.model) sem duplicar a string. */
+  get modelName(): string {
+    return this.model;
   }
 
   get isConfigured(): boolean {
@@ -144,6 +153,62 @@ ${JSON.stringify(context.currentProfile || {}, null, 2)}
       };
     } catch {
       // Fallback gracioso para o motor determinístico
+      return null;
+    }
+  }
+
+  /**
+   * Geração de texto livre (não estruturado), usada pelo resumo de conversa.
+   * Segue o mesmo contrato de falha silenciosa de generateResponse: quem
+   * chama nunca pode travar por causa da IA estar fora do ar.
+   */
+  async generateSummary(prompt: string): Promise<string | null> {
+    if (!this.isConfigured || !this.apiKey) {
+      return null;
+    }
+
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent?key=${this.apiKey}`;
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: "user",
+              parts: [{ text: prompt }],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.3,
+            // Modelos "thinking" da geração 3.x consomem parte do orçamento de
+            // saída com tokens de raciocínio invisíveis antes do texto final
+            // (medido em ~230 tokens num teste real em 29/08/2026) — um teto
+            // de 200 cortava a resposta a meio, sem nunca chegar a emitir o
+            // resumo. 1024 dá folga para o raciocínio e para as 3 linhas.
+            maxOutputTokens: 1024,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        return null;
+      }
+
+      const data = (await response.json()) as {
+        candidates?: Array<{
+          content?: {
+            parts?: Array<{ text?: string }>;
+          };
+        }>;
+      };
+
+      const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!rawText) return null;
+
+      return rawText.trim();
+    } catch {
+      // Fallback gracioso: quem chama cai para o resumo determinístico
       return null;
     }
   }

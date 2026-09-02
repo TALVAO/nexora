@@ -1,3 +1,4 @@
+import type { AvailabilityAssessment } from "@nexora/domain";
 import type { LeadIntent, ExtractedLeadProfile, NextActionDecision } from "./types.js";
 
 export interface ResponseGenerationInput {
@@ -7,9 +8,36 @@ export interface ResponseGenerationInput {
   lastMessageText: string;
   agencyName?: string;
   isUnknownQuestion?: boolean;
+  /**
+   * Avaliação de disponibilidade dos imóveis que esta resposta pode citar
+   * (Etapa 15.1). Vazio ou ausente = nenhuma disponibilidade verificada, e
+   * portanto **nenhuma frase afirmativa de disponibilidade pode sair**.
+   */
+  availability?: AvailabilityAssessment[];
 }
 
+/**
+ * Frase usada sempre que o lead toca em disponibilidade e o sistema não tem
+ * verificação fresca. É deliberadamente um compromisso de retorno, não uma
+ * negativa: é exatamente ela que o Availability Check Loop (Etapa 15.3) vai
+ * destravar quando o corretor responder.
+ */
+const RECONFIRMATION_REPLY =
+  "Vou confirmar a disponibilidade agora mesmo com o corretor responsável e já te retorno com a resposta certa.";
+
 export class ResponseGenerator {
+  /**
+   * Regra de ouro da Fase 15 (CLAUDE.md §23): só é permitido afirmar
+   * disponibilidade quando existe pelo menos um imóvel avaliado e **todos** os
+   * avaliados estão dentro da janela de verificação do tenant. Sem lista, sem
+   * afirmação — fail closed.
+   */
+  private canAssertAvailability(input: ResponseGenerationInput): boolean {
+    const assessments = input.availability;
+    if (!assessments || assessments.length === 0) return false;
+    return assessments.every((assessment) => assessment.canAssert);
+  }
+
   generate(input: ResponseGenerationInput): string {
     const { intent, decision, profile, lastMessageText } = input;
 
@@ -36,6 +64,23 @@ export class ResponseGenerator {
 
     // 4. Questions with unverified facts / Property questions
     if (intent === "PROPERTY_QUESTION") {
+      // Pergunta direta de disponibilidade: o pior erro comercial possível é
+      // responder "está disponível" sobre imóvel já alugado e mandar o lead
+      // marcar visita. Sem verificação fresca, o sistema promete retorno.
+      if (
+        /dispon[íi]vel|ainda (est[áa]|tem)|foi alugado|j[áa] (alugou|alugaram|vendeu|venderam)|continua (livre|vago)/i.test(
+          lastMessageText,
+        )
+      ) {
+        if (!this.canAssertAvailability(input)) {
+          return RECONFIRMATION_REPLY;
+        }
+        return (
+          "Sim, está disponível! " +
+          (decision.questionToAsk || "Quer que eu já veja um horário de visita para você?")
+        );
+      }
+
       // Check if asking about unverified condo rules or specific characteristics
       if (
         /espessura|estrutura|fiação|quadro de luz|antigo morador|vizinhança|parede/i.test(
@@ -80,7 +125,18 @@ export class ResponseGenerator {
         ? `até R$ ${profile.maxBudget.toLocaleString("pt-BR")}`
         : "";
 
-      return `Excelente! Entendi que você procura um imóvel para ${transText} ${bedroomsText} ${nbText} ${budgetText}. Já estou buscando as melhores opções disponíveis com esse perfil para te apresentar.`;
+      const perfil =
+        `Excelente! Entendi que você procura um imóvel para ${transText} ${bedroomsText} ${nbText} ${budgetText}.`.replace(
+          /\s+/g,
+          " ",
+        );
+
+      // "opções disponíveis" é uma afirmação de disponibilidade. Ela só pode
+      // sair quando existe verificação fresca por trás (Etapa 15.1); caso
+      // contrário a frase promete uma checagem em vez de garantir estoque.
+      return this.canAssertAvailability(input)
+        ? `${perfil} Já estou separando as melhores opções disponíveis com esse perfil para te apresentar.`
+        : `${perfil} Já estou levantando as melhores opções com esse perfil e confirmando a disponibilidade de cada uma antes de te apresentar.`;
     }
 
     // 7. General Questions

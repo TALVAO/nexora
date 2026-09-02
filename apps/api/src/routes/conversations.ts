@@ -2,6 +2,7 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from "fastify";
 import { MessageGateway, type MessageType } from "@nexora/messaging";
 import { EvolutionWhatsAppProvider } from "@nexora/messaging";
 import { MessageRepository } from "@nexora/database";
+import { tenantContext } from "../plugins/auth.js";
 
 export interface ConversationPluginOptions {
   gateway?: MessageGateway;
@@ -31,15 +32,11 @@ export const conversationRoutes: FastifyPluginAsync<ConversationPluginOptions> =
           type?: MessageType;
           caption?: string;
         };
-        Headers: { "x-tenant-id"?: string };
       }>,
       reply: FastifyReply,
     ) => {
       const { id: conversationId } = request.params;
-      const tenantId =
-        request.headers["x-tenant-id"] ||
-        process.env.DEFAULT_TENANT_ID ||
-        "a0000000-0000-0000-0000-000000000001";
+      const { tenantId } = tenantContext(request);
 
       const { text, mediaUrl, type, caption } = request.body || {};
 
@@ -89,15 +86,11 @@ export const conversationRoutes: FastifyPluginAsync<ConversationPluginOptions> =
       request: FastifyRequest<{
         Params: { id: string };
         Querystring: { limit?: string };
-        Headers: { "x-tenant-id"?: string };
       }>,
       reply: FastifyReply,
     ) => {
       const { id: conversationId } = request.params;
-      const tenantId =
-        request.headers["x-tenant-id"] ||
-        process.env.DEFAULT_TENANT_ID ||
-        "a0000000-0000-0000-0000-000000000001";
+      const { tenantId } = tenantContext(request);
       const limit = Number(request.query.limit) || 50;
 
       try {

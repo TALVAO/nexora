@@ -7,6 +7,7 @@ import type {
   FOLLOWUP_STATUSES,
   VISIT_STATUSES,
   PROPERTY_STATUSES,
+  AVAILABILITY_SOURCES,
   PLANS,
 } from "./constants.js";
 
@@ -18,6 +19,7 @@ export type Temperature = (typeof TEMPERATURES)[number];
 export type FollowupStatus = (typeof FOLLOWUP_STATUSES)[number];
 export type VisitStatus = (typeof VISIT_STATUSES)[number];
 export type PropertyStatus = (typeof PROPERTY_STATUSES)[number];
+export type AvailabilitySource = (typeof AVAILABILITY_SOURCES)[number];
 export type PlanType = (typeof PLANS)[number];
 
 export interface BaseEntity {

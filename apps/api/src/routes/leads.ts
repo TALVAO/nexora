@@ -1,13 +1,17 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from "fastify";
 import { LeadRepository, type LeadProfileData, type ActivityData } from "@nexora/database";
 import type { Stage, Channel, AutomationMode, Temperature } from "@nexora/shared";
+import { MessageGateway } from "@nexora/messaging";
+import { tenantContext, ROLES_ADMIN } from "../plugins/auth.js";
 
 export interface LeadsPluginOptions {
   leadRepo?: LeadRepository;
+  gateway?: MessageGateway;
 }
 
 export const leadRoutes: FastifyPluginAsync<LeadsPluginOptions> = async (fastify, opts) => {
   const leadRepo = opts?.leadRepo || new LeadRepository();
+  const gateway = opts?.gateway || new MessageGateway();
 
   // ----------------------------------------------------------------------------
   // Listar Leads com Filtros
@@ -25,14 +29,10 @@ export const leadRoutes: FastifyPluginAsync<LeadsPluginOptions> = async (fastify
           limit?: string;
           offset?: string;
         };
-        Headers: { "x-tenant-id"?: string };
       }>,
       reply: FastifyReply,
     ) => {
-      const tenantId =
-        request.headers["x-tenant-id"] ||
-        process.env.DEFAULT_TENANT_ID ||
-        "a0000000-0000-0000-0000-000000000001";
+      const { tenantId } = tenantContext(request);
 
       const { stage, temperature, source, automation_mode, search } = request.query;
       const limit = Number(request.query.limit) || 50;
@@ -69,15 +69,11 @@ export const leadRoutes: FastifyPluginAsync<LeadsPluginOptions> = async (fastify
     async (
       request: FastifyRequest<{
         Params: { id: string };
-        Headers: { "x-tenant-id"?: string };
       }>,
       reply: FastifyReply,
     ) => {
       const { id } = request.params;
-      const tenantId =
-        request.headers["x-tenant-id"] ||
-        process.env.DEFAULT_TENANT_ID ||
-        "a0000000-0000-0000-0000-000000000001";
+      const { tenantId } = tenantContext(request);
 
       try {
         const lead360 = await leadRepo.findLead360({ tenantId }, id);
@@ -103,6 +99,45 @@ export const leadRoutes: FastifyPluginAsync<LeadsPluginOptions> = async (fastify
   );
 
   // ----------------------------------------------------------------------------
+  // Assumir Conversa (Human Takeover + cancelamento de follow-ups + resumo IA)
+  // ----------------------------------------------------------------------------
+  fastify.post(
+    "/api/leads/:id/assume",
+    async (
+      request: FastifyRequest<{
+        Params: { id: string };
+      }>,
+      reply: FastifyReply,
+    ) => {
+      const { id } = request.params;
+      const { tenantId } = tenantContext(request);
+
+      try {
+        const result = await gateway.assumeConversation({ tenantId }, id);
+        if (!result) {
+          return reply.status(404).send({
+            success: false,
+            error: "Lead não encontrado",
+          });
+        }
+
+        return reply.status(200).send({
+          success: true,
+          lead: result.lead,
+          cancelledFollowups: result.cancelledFollowups,
+          summary: result.summary,
+        });
+      } catch (err: unknown) {
+        request.log.error(err, "Erro ao assumir conversa do lead");
+        return reply.status(500).send({
+          success: false,
+          error: err instanceof Error ? err.message : "Erro ao assumir conversa",
+        });
+      }
+    },
+  );
+
+  // ----------------------------------------------------------------------------
   // Atualizar Lead (Estágio, Temperatura, Human Takeover, Responsável)
   // ----------------------------------------------------------------------------
   fastify.patch(
@@ -121,15 +156,11 @@ export const leadRoutes: FastifyPluginAsync<LeadsPluginOptions> = async (fastify
           assigned_user_id?: string | null;
           lost_reason?: string | null;
         };
-        Headers: { "x-tenant-id"?: string };
       }>,
       reply: FastifyReply,
     ) => {
       const { id } = request.params;
-      const tenantId =
-        request.headers["x-tenant-id"] ||
-        process.env.DEFAULT_TENANT_ID ||
-        "a0000000-0000-0000-0000-000000000001";
+      const { tenantId } = tenantContext(request);
 
       try {
         const updated = await leadRepo.update({ tenantId }, id, request.body);
@@ -163,15 +194,11 @@ export const leadRoutes: FastifyPluginAsync<LeadsPluginOptions> = async (fastify
       request: FastifyRequest<{
         Params: { id: string };
         Body: LeadProfileData;
-        Headers: { "x-tenant-id"?: string };
       }>,
       reply: FastifyReply,
     ) => {
       const { id } = request.params;
-      const tenantId =
-        request.headers["x-tenant-id"] ||
-        process.env.DEFAULT_TENANT_ID ||
-        "a0000000-0000-0000-0000-000000000001";
+      const { tenantId } = tenantContext(request);
 
       try {
         const profile = await leadRepo.upsertProfile({ tenantId }, id, request.body);
@@ -199,15 +226,11 @@ export const leadRoutes: FastifyPluginAsync<LeadsPluginOptions> = async (fastify
       request: FastifyRequest<{
         Params: { id: string };
         Body: ActivityData;
-        Headers: { "x-tenant-id"?: string };
       }>,
       reply: FastifyReply,
     ) => {
       const { id } = request.params;
-      const tenantId =
-        request.headers["x-tenant-id"] ||
-        process.env.DEFAULT_TENANT_ID ||
-        "a0000000-0000-0000-0000-000000000001";
+      const { tenantId } = tenantContext(request);
 
       if (!request.body.description) {
         return reply.status(400).send({
@@ -246,15 +269,11 @@ export const leadRoutes: FastifyPluginAsync<LeadsPluginOptions> = async (fastify
           reason?: string;
           profileId?: string;
         };
-        Headers: { "x-tenant-id"?: string };
       }>,
       reply: FastifyReply,
     ) => {
       const { id } = request.params;
-      const tenantId =
-        request.headers["x-tenant-id"] ||
-        process.env.DEFAULT_TENANT_ID ||
-        "a0000000-0000-0000-0000-000000000001";
+      const { tenantId } = tenantContext(request);
 
       const { stage, reason, profileId } = request.body;
       if (!stage) {
@@ -295,15 +314,11 @@ export const leadRoutes: FastifyPluginAsync<LeadsPluginOptions> = async (fastify
           email?: string;
           name?: string;
         };
-        Headers: { "x-tenant-id"?: string };
       }>,
       reply: FastifyReply,
     ) => {
       const { id } = request.params;
-      const tenantId =
-        request.headers["x-tenant-id"] ||
-        process.env.DEFAULT_TENANT_ID ||
-        "a0000000-0000-0000-0000-000000000001";
+      const { tenantId } = tenantContext(request);
 
       try {
         const updated = await leadRepo.linkIdentity({ tenantId }, id, request.body);
@@ -327,20 +342,17 @@ export const leadRoutes: FastifyPluginAsync<LeadsPluginOptions> = async (fastify
   // ----------------------------------------------------------------------------
   fastify.post(
     "/api/leads/:id/merge",
+    { config: { roles: ROLES_ADMIN } },
     async (
       request: FastifyRequest<{
         Params: { id: string };
         Body: { sourceLeadId: string };
-        Headers: { "x-tenant-id"?: string };
       }>,
       reply: FastifyReply,
     ) => {
       const { id: targetLeadId } = request.params;
       const { sourceLeadId } = request.body;
-      const tenantId =
-        request.headers["x-tenant-id"] ||
-        process.env.DEFAULT_TENANT_ID ||
-        "a0000000-0000-0000-0000-000000000001";
+      const { tenantId } = tenantContext(request);
 
       if (!sourceLeadId) {
         return reply.status(400).send({

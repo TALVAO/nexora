@@ -30,19 +30,33 @@ export class ConversationEngine {
     const startTime = Date.now();
 
     // 1. Intent Classification
-    const intentResult = this.classifier.classify(context.lastMessageText);
+    const intentResult = this.classifier.classify(context.lastMessageText, context.vocabulary);
 
     // 2. Structured Extraction (incorporating previous profile state)
     const extractionResult = this.extractor.extract(
       context.lastMessageText,
       context.currentProfile,
+      context.vocabulary,
     );
 
     // 3. Next Action Policy Decision
+    // O tenant só é perguntado sobre bairro se o sistema souber reconhecer a
+    // resposta dele — e quem reconhece bairro é a lista de BAIRROS. Ter apenas
+    // cidades cadastradas não ajuda: o lead responde "Boa Viagem" e a extração
+    // continua vazia, devolvendo a mesma pergunta para sempre.
+    //
+    // Quando o vocabulário não chegou (falha de leitura), não afirmamos nada:
+    // sem a opção, a política mantém o roteiro normal.
+    const policyOptions =
+      context.vocabulary === undefined
+        ? undefined
+        : { hasGeography: context.vocabulary.neighborhoods.length > 0 };
+
     const nextAction = this.policy.decide(
       intentResult.intent,
       extractionResult.profile,
       intentResult.confidence,
+      policyOptions,
     );
 
     // 4. Response Generation with Guardrails
@@ -52,6 +66,7 @@ export class ConversationEngine {
       decision: nextAction,
       lastMessageText: context.lastMessageText,
       agencyName: context.agencyName,
+      availability: context.availability,
     });
 
     const shouldHandoff = nextAction.action === "HANDOFF_HUMAN";
@@ -106,7 +121,7 @@ export class ConversationEngine {
           promptTokens: Math.ceil(context.lastMessageText.length / 4),
           completionTokens: Math.ceil(geminiResult.text.length / 4),
           latencyMs,
-          model: "gemini-1.5-flash",
+          model: this.geminiClient.modelName,
         };
         return { response: geminiResult, aiRun };
       }

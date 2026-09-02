@@ -2,6 +2,7 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from "fastify";
 import { VisitRepository, LeadRepository, FollowupRepository } from "@nexora/database";
 import { VisitService, FollowupScheduler } from "@nexora/messaging";
 import type { VisitStatus } from "@nexora/shared";
+import { tenantContext } from "../plugins/auth.js";
 
 export interface VisitPluginOptions {
   visitRepo?: VisitRepository;
@@ -37,14 +38,10 @@ export const visitRoutes: FastifyPluginAsync<VisitPluginOptions> = async (fastif
           limit?: string;
           offset?: string;
         };
-        Headers: { "x-tenant-id"?: string };
       }>,
       reply: FastifyReply,
     ) => {
-      const tenantId =
-        request.headers["x-tenant-id"] ||
-        process.env.DEFAULT_TENANT_ID ||
-        "a0000000-0000-0000-0000-000000000001";
+      const { tenantId } = tenantContext(request);
 
       const { status, leadId, assignedUserId } = request.query;
       const limit = Number(request.query.limit) || 50;
@@ -78,15 +75,11 @@ export const visitRoutes: FastifyPluginAsync<VisitPluginOptions> = async (fastif
     async (
       request: FastifyRequest<{
         Params: { id: string };
-        Headers: { "x-tenant-id"?: string };
       }>,
       reply: FastifyReply,
     ) => {
       const { id } = request.params;
-      const tenantId =
-        request.headers["x-tenant-id"] ||
-        process.env.DEFAULT_TENANT_ID ||
-        "a0000000-0000-0000-0000-000000000001";
+      const { tenantId } = tenantContext(request);
 
       try {
         const visit = await visitRepo.findById({ tenantId }, id);
@@ -125,14 +118,10 @@ export const visitRoutes: FastifyPluginAsync<VisitPluginOptions> = async (fastif
           scheduledAt: string;
           feedback?: string | null;
         };
-        Headers: { "x-tenant-id"?: string };
       }>,
       reply: FastifyReply,
     ) => {
-      const tenantId =
-        request.headers["x-tenant-id"] ||
-        process.env.DEFAULT_TENANT_ID ||
-        "a0000000-0000-0000-0000-000000000001";
+      const { tenantId } = tenantContext(request);
 
       const { leadId, propertyId, assignedUserId, scheduledAt, feedback } = request.body;
 
@@ -172,15 +161,11 @@ export const visitRoutes: FastifyPluginAsync<VisitPluginOptions> = async (fastif
       request: FastifyRequest<{
         Params: { id: string };
         Body: { scheduledAt: string; reason?: string };
-        Headers: { "x-tenant-id"?: string };
       }>,
       reply: FastifyReply,
     ) => {
       const { id } = request.params;
-      const tenantId =
-        request.headers["x-tenant-id"] ||
-        process.env.DEFAULT_TENANT_ID ||
-        "a0000000-0000-0000-0000-000000000001";
+      const { tenantId } = tenantContext(request);
 
       const { scheduledAt, reason } = request.body;
       if (!scheduledAt) {
@@ -216,15 +201,11 @@ export const visitRoutes: FastifyPluginAsync<VisitPluginOptions> = async (fastif
       request: FastifyRequest<{
         Params: { id: string };
         Body: { reason?: string };
-        Headers: { "x-tenant-id"?: string };
       }>,
       reply: FastifyReply,
     ) => {
       const { id } = request.params;
-      const tenantId =
-        request.headers["x-tenant-id"] ||
-        process.env.DEFAULT_TENANT_ID ||
-        "a0000000-0000-0000-0000-000000000001";
+      const { tenantId } = tenantContext(request);
 
       const reason = request.body?.reason || "Cancelamento informado pelo cliente";
 
@@ -254,15 +235,11 @@ export const visitRoutes: FastifyPluginAsync<VisitPluginOptions> = async (fastif
       request: FastifyRequest<{
         Params: { id: string };
         Body: { feedback?: string };
-        Headers: { "x-tenant-id"?: string };
       }>,
       reply: FastifyReply,
     ) => {
       const { id } = request.params;
-      const tenantId =
-        request.headers["x-tenant-id"] ||
-        process.env.DEFAULT_TENANT_ID ||
-        "a0000000-0000-0000-0000-000000000001";
+      const { tenantId } = tenantContext(request);
 
       const feedback = request.body?.feedback;
 
@@ -293,15 +270,11 @@ export const visitRoutes: FastifyPluginAsync<VisitPluginOptions> = async (fastif
       request: FastifyRequest<{
         Params: { id: string };
         Body: { reason?: string };
-        Headers: { "x-tenant-id"?: string };
       }>,
       reply: FastifyReply,
     ) => {
       const { id } = request.params;
-      const tenantId =
-        request.headers["x-tenant-id"] ||
-        process.env.DEFAULT_TENANT_ID ||
-        "a0000000-0000-0000-0000-000000000001";
+      const { tenantId } = tenantContext(request);
 
       const reason = request.body?.reason;
 
@@ -331,15 +304,11 @@ export const visitRoutes: FastifyPluginAsync<VisitPluginOptions> = async (fastif
       request: FastifyRequest<{
         Params: { id: string };
         Body: { feedback: string };
-        Headers: { "x-tenant-id"?: string };
       }>,
       reply: FastifyReply,
     ) => {
       const { id } = request.params;
-      const tenantId =
-        request.headers["x-tenant-id"] ||
-        process.env.DEFAULT_TENANT_ID ||
-        "a0000000-0000-0000-0000-000000000001";
+      const { tenantId } = tenantContext(request);
 
       const { feedback } = request.body;
       if (!feedback) {

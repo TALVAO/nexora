@@ -15,12 +15,20 @@ import {
   assertTenantContext,
   MessageRepository,
   FollowupRepository,
+  LeadRepository,
   query,
   type LeadRow,
   type ConversationRow,
   type MessageRow,
 } from "@nexora/database";
-import { ConversationEngine, type GeneratedResponse } from "@nexora/ai";
+import {
+  ConversationEngine,
+  GeminiClient,
+  summarizeConversation,
+  type GeneratedResponse,
+  type ExtractedLeadProfile,
+} from "@nexora/ai";
+import { VocabularyRepository } from "@nexora/database";
 
 export interface ProcessedInboundResult {
   isDuplicate: boolean;
@@ -51,15 +59,24 @@ export class MessageGateway {
   private messageRepo: MessageRepository;
   private conversationEngine: ConversationEngine;
   private followupRepo: FollowupRepository;
+  private vocabularyRepo: VocabularyRepository;
+  private leadRepo: LeadRepository;
+  private geminiClient: GeminiClient;
 
   constructor(dependencies?: {
     messageRepo?: MessageRepository;
     conversationEngine?: ConversationEngine;
     followupRepo?: FollowupRepository;
+    vocabularyRepo?: VocabularyRepository;
+    leadRepo?: LeadRepository;
+    geminiClient?: GeminiClient;
   }) {
     this.messageRepo = dependencies?.messageRepo || new MessageRepository();
     this.conversationEngine = dependencies?.conversationEngine || new ConversationEngine();
     this.followupRepo = dependencies?.followupRepo || new FollowupRepository();
+    this.vocabularyRepo = dependencies?.vocabularyRepo || new VocabularyRepository();
+    this.leadRepo = dependencies?.leadRepo || new LeadRepository();
+    this.geminiClient = dependencies?.geminiClient || new GeminiClient();
 
     // Register standard providers
     this.registerProvider("WHATSAPP", "evolution", new EvolutionWhatsAppProvider());
@@ -156,11 +173,22 @@ export class MessageGateway {
 
     // 6. Conversation Engine + IA Processing
     if (lead.automation_mode === "AI" && normalized.direction === "INBOUND" && normalized.text) {
+      // Geografia e vocabulário vêm do tenant, nunca de lista fixa no código.
+      // Falha ao carregar não pode derrubar o atendimento: a extração continua
+      // funcionando para orçamento, quartos, vagas e prazo.
+      let vocabulary;
+      try {
+        vocabulary = await this.vocabularyRepo.loadVocabulary(ctx);
+      } catch (err) {
+        console.error("[Gateway] Falha ao carregar vocabulário do tenant:", err);
+      }
+
       const aiResult = this.conversationEngine.processMessage({
         tenantId: ctx.tenantId,
         leadId: lead.id,
         conversationId: conversation.id,
         lastMessageText: normalized.text,
+        vocabulary,
       });
 
       aiResponse = aiResult.response;
@@ -406,6 +434,100 @@ export class MessageGateway {
 
     const result = await query(sql, [status, ctx.tenantId, externalMessageId, now]);
     return (result.rowCount ?? 0) > 0;
+  }
+
+  /**
+   * Corretor assume manualmente o atendimento (Etapa 14.2). A ordem importa:
+   * a IA sai do ar (assumeControl) e os follow-ups pendentes são cancelados
+   * ANTES do resumo ser gerado — o resumo é só um extra para o corretor ler,
+   * nunca pode bloquear nem reverter o takeover em si (CLAUDE.md §25: a IA
+   * não confirma uma ação que o backend não confirmou de verdade).
+   */
+  async assumeConversation(
+    ctx: TenantContext,
+    leadId: string,
+  ): Promise<{ lead: LeadRow; cancelledFollowups: number; summary: string } | null> {
+    assertTenantContext(ctx);
+
+    const view = await this.leadRepo.findLead360(ctx, leadId);
+    if (!view) return null;
+
+    const updatedLead = await this.leadRepo.assumeControl(ctx, leadId);
+    if (!updatedLead) return null;
+
+    const cancelledFollowups = await this.followupRepo.cancelJobsForLead(
+      ctx,
+      leadId,
+      "Corretor assumiu a conversa manualmente",
+    );
+
+    // Nota de auditoria é complementar, igual ao resumo abaixo: uma falha aqui
+    // (ex.: `addActivity` está com o INSERT desalinhado do schema real de
+    // `activities` — bug pré-existente, ver memoria.md) não pode reverter nem
+    // bloquear um takeover que já foi confirmado no banco (CLAUDE.md §25).
+    try {
+      await this.leadRepo.addActivity(ctx, leadId, {
+        activity_type: "NOTE",
+        description: "Corretor assumiu o atendimento manualmente.",
+      });
+    } catch (err) {
+      console.error("[Gateway] Falha ao registrar atividade de takeover:", err);
+    }
+
+    // Histórico para a IA: mensagens sem texto (mídia pura) não ajudam o resumo.
+    const history = view.recentMessages
+      .filter((m): m is MessageRow & { text: string } => !!m.text)
+      .map((m) => ({
+        role: (m.direction === "INBOUND" ? "lead" : "assistant") as "lead" | "assistant",
+        text: m.text,
+      }));
+
+    const profile: ExtractedLeadProfile | undefined = view.profile
+      ? {
+          transactionType: (view.profile.transaction_type as "RENT" | "BUY" | null) ?? null,
+          propertyType: view.profile.property_type ?? null,
+          city: view.profile.city ?? null,
+          neighborhoods: view.profile.neighborhoods ?? [],
+          maxBudget: view.profile.max_budget ?? null,
+          bedrooms: view.profile.bedrooms ?? null,
+          parkingSpaces: view.profile.parking_spaces ?? null,
+          hasPet: view.profile.pet_required ?? null,
+          moveDate: view.profile.move_date ?? null,
+          rentalGuarantee: view.profile.rental_guarantee ?? null,
+        }
+      : undefined;
+
+    const { text: summary, source } = await summarizeConversation(
+      { leadName: view.lead.name, profile, history },
+      this.geminiClient,
+    );
+
+    // Audit log em ai_runs, igual ao restante deste arquivo. conversation_id
+    // fica NULL: o resumo cobre todos os canais do lead, não uma conversa só.
+    await query(
+      `
+      INSERT INTO ai_runs (
+        tenant_id,
+        lead_id,
+        conversation_id,
+        purpose,
+        provider,
+        model,
+        result_json
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7);
+    `,
+      [
+        ctx.tenantId,
+        leadId,
+        null,
+        "CONVERSATION_SUMMARY",
+        source === "AI" ? "gemini" : "fallback_heuristic",
+        source === "AI" ? "gemini" : "heuristic_v1",
+        JSON.stringify({ summary }),
+      ],
+    );
+
+    return { lead: updatedLead, cancelledFollowups, summary };
   }
 
   private async resolveOrCreateLead(

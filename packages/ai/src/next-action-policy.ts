@@ -1,10 +1,22 @@
 import type { LeadIntent, ExtractedLeadProfile, NextActionDecision } from "./types.js";
 
+export interface PolicyOptions {
+  /**
+   * O tenant tem geografia cadastrada?
+   *
+   * Sem isso a extração nunca reconhece um bairro, e perguntar "em qual
+   * bairro?" vira laço infinito: o lead responde, o sistema não entende, e a
+   * mesma pergunta volta. Melhor pular a etapa do que travar o atendimento.
+   */
+  hasGeography?: boolean;
+}
+
 export class NextActionPolicy {
   decide(
     intent: LeadIntent,
     profile: ExtractedLeadProfile,
     intentConfidence: number,
+    options?: PolicyOptions,
   ): NextActionDecision {
     // 1. Guardrail: Opt-out request
     if (intent === "STOP_MESSAGES") {
@@ -93,7 +105,11 @@ export class NextActionPolicy {
       };
     }
 
-    if (!profile.neighborhoods || profile.neighborhoods.length === 0) {
+    const canUnderstandNeighborhoods = options?.hasGeography ?? true;
+    if (
+      canUnderstandNeighborhoods &&
+      (!profile.neighborhoods || profile.neighborhoods.length === 0)
+    ) {
       return {
         action: "ASK_QUESTION",
         questionToAsk: "Em qual bairro ou região você prefere morar?",

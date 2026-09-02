@@ -1,8 +1,37 @@
 import type { ExtractedLeadProfile, ExtractionResult } from "./types.js";
+import {
+  normalizeTerm,
+  matchVocabularyTerm,
+  matchLocationTerms,
+  DEFAULT_PROPERTY_TYPES,
+  DEFAULT_RENTAL_GUARANTEES,
+  type TenantVocabulary,
+} from "@nexora/shared";
+
+/**
+ * Vocabulário usado quando o chamador não informa nenhum.
+ *
+ * Contém APENAS o catálogo padrão do mercado brasileiro. A geografia fica
+ * vazia de propósito: reconhecer bairro sem saber de qual tenant é significaria
+ * vazar o contexto de um cliente dentro de outro (CLAUDE.md §10).
+ */
+const FALLBACK_VOCABULARY: TenantVocabulary = {
+  cities: [],
+  neighborhoods: [],
+  propertyTypes: DEFAULT_PROPERTY_TYPES,
+  rentalGuarantees: DEFAULT_RENTAL_GUARANTEES,
+};
 
 export class StructuredExtractor {
-  extract(text: string, currentProfile?: ExtractedLeadProfile): ExtractionResult {
+  extract(
+    text: string,
+    currentProfile?: ExtractedLeadProfile,
+    vocabulary?: TenantVocabulary,
+  ): ExtractionResult {
     const raw = text.toLowerCase();
+    const normalized = normalizeTerm(text);
+    const vocab = vocabulary ?? FALLBACK_VOCABULARY;
+
     const profile: ExtractedLeadProfile = {
       transactionType: currentProfile?.transactionType ?? null,
       propertyType: currentProfile?.propertyType ?? null,
@@ -44,19 +73,10 @@ export class StructuredExtractor {
       }
     }
 
-    // 2. Property Type
-    if (/\b(apartamento|apto|ap)\b/i.test(raw)) {
-      profile.propertyType = "Apartamento";
-    } else if (/\b(casa em condomínio|casa de condomínio|condomínio fechado)\b/i.test(raw)) {
-      profile.propertyType = "Casa em Condomínio";
-    } else if (/\b(casa|sobrado)\b/i.test(raw)) {
-      profile.propertyType = "Casa";
-    } else if (/\b(cobertura)\b/i.test(raw)) {
-      profile.propertyType = "Cobertura";
-    } else if (/\b(kitnet|kit|studio|loft)\b/i.test(raw)) {
-      profile.propertyType = "Kitnet/Studio";
-    } else if (/\b(sala comercial|galpão|ponto comercial)\b/i.test(raw)) {
-      profile.propertyType = "Comercial";
+    // 2. Property Type — vocabulário do tenant sobre o padrão do mercado
+    const propertyTypeMatch = matchVocabularyTerm(normalized, vocab.propertyTypes);
+    if (propertyTypeMatch) {
+      profile.propertyType = propertyTypeMatch.canonical;
     }
 
     // 3. Bedrooms (Dormitórios)
@@ -122,50 +142,36 @@ export class StructuredExtractor {
       }
     }
 
-    // 6. Neighborhoods (Bairros)
-    const knownNeighborhoods = [
-      "Eloy Chaves",
-      "Retiro",
-      "Centro",
-      "Vila Arens",
-      "Jardim do Trevo",
-      "Medeiros",
-      "Anhangabaú",
-      "Caxambu",
-      "Malota",
-      "Jardim Botânico",
-      "Engordadouro",
-      "Vila Mariana",
-      "Moema",
-      "Pinheiros",
-      "Perdizes",
-      "Tatuapé",
-    ];
-
-    for (const nb of knownNeighborhoods) {
-      if (new RegExp(`\\b${nb}\\b`, "i").test(text)) {
-        if (!profile.neighborhoods) profile.neighborhoods = [];
-        if (!profile.neighborhoods.includes(nb)) {
-          profile.neighborhoods.push(nb);
-        }
+    // 6. Bairros — exclusivamente da geografia cadastrada do tenant
+    const matchedNeighborhoods = matchLocationTerms(normalized, vocab.neighborhoods);
+    for (const nb of matchedNeighborhoods) {
+      if (!profile.neighborhoods) profile.neighborhoods = [];
+      if (!profile.neighborhoods.includes(nb.canonical)) {
+        profile.neighborhoods.push(nb.canonical);
       }
     }
 
-    // 7. City
-    const knownCities = [
-      "Jundiaí",
-      "Jundiai",
-      "São Paulo",
-      "Sao Paulo",
-      "Campinas",
-      "Itupeva",
-      "Louveira",
-      "Cabreúva",
-    ];
-    for (const city of knownCities) {
-      if (new RegExp(`\\b${city}\\b`, "i").test(text)) {
-        profile.city = city.replace("Jundiai", "Jundiaí").replace("Sao Paulo", "São Paulo");
-        break;
+    // 7. Cidade — citada diretamente ou inferida do bairro, nunca no chute
+    //
+    // Ambiguidade não vira palpite: "Centro" pode existir em duas cidades do
+    // mesmo tenant. Inventar a cidade sujaria `lead_profiles` com um fato que
+    // o lead nunca disse e que o matching usaria como verdade (§22).
+    const matchedCities = matchLocationTerms(normalized, vocab.cities);
+    const distinctCities = new Set(matchedCities.map((c) => c.normalized));
+
+    if (matchedCities[0] && distinctCities.size === 1) {
+      profile.city = matchedCities[0].canonical;
+    } else if (matchedCities.length === 0 && matchedNeighborhoods.length > 0) {
+      const parents = new Set(
+        matchedNeighborhoods
+          .map((nb) => nb.parentCityNormalized)
+          .filter((parent): parent is string => Boolean(parent)),
+      );
+
+      if (parents.size === 1) {
+        const [parent] = [...parents];
+        const parentCity = vocab.cities.find((c) => c.normalized === parent);
+        if (parentCity) profile.city = parentCity.canonical;
       }
     }
 
@@ -192,15 +198,10 @@ export class StructuredExtractor {
       if (match) profile.moveDate = match[0];
     }
 
-    // 10. Rental Guarantee
-    if (/\b(caução|depósito caução|3 meses de depósito)\b/i.test(raw)) {
-      profile.rentalGuarantee = "Caução";
-    } else if (/\b(seguro fiança|porto seguro|tokio marine)\b/i.test(raw)) {
-      profile.rentalGuarantee = "Seguro Fiança";
-    } else if (/\b(fiador)\b/i.test(raw)) {
-      profile.rentalGuarantee = "Fiador";
-    } else if (/\b(credpago|cartão de crédito)\b/i.test(raw)) {
-      profile.rentalGuarantee = "CredPago / Cartão";
+    // 10. Garantia locatícia — vocabulário do tenant sobre o padrão do mercado
+    const guaranteeMatch = matchVocabularyTerm(normalized, vocab.rentalGuarantees);
+    if (guaranteeMatch) {
+      profile.rentalGuarantee = guaranteeMatch.canonical;
     }
 
     return {

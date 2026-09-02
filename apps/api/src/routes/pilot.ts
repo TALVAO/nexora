@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from "fastify";
 import { PilotRepository, type RecordIncidentInput } from "@nexora/database";
+import { tenantContext } from "../plugins/auth.js";
 
 export interface PilotPluginOptions {
   pilotRepo?: PilotRepository;
@@ -16,14 +17,10 @@ export const pilotRoutes: FastifyPluginAsync<PilotPluginOptions> = async (fastif
     async (
       request: FastifyRequest<{
         Querystring: { from?: string; to?: string };
-        Headers: { "x-tenant-id"?: string };
       }>,
       reply: FastifyReply,
     ) => {
-      const tenantId =
-        request.headers["x-tenant-id"] ||
-        process.env.DEFAULT_TENANT_ID ||
-        "a0000000-0000-0000-0000-000000000001";
+      const { tenantId } = tenantContext(request);
 
       const { from, to } = request.query;
 
@@ -52,14 +49,10 @@ export const pilotRoutes: FastifyPluginAsync<PilotPluginOptions> = async (fastif
     async (
       request: FastifyRequest<{
         Body: RecordIncidentInput;
-        Headers: { "x-tenant-id"?: string };
       }>,
       reply: FastifyReply,
     ) => {
-      const tenantId =
-        request.headers["x-tenant-id"] ||
-        process.env.DEFAULT_TENANT_ID ||
-        "a0000000-0000-0000-0000-000000000001";
+      const { tenantId } = tenantContext(request);
 
       const { incidentType, description, expectedBehavior, actualBehavior, severity } =
         request.body;
@@ -106,14 +99,10 @@ export const pilotRoutes: FastifyPluginAsync<PilotPluginOptions> = async (fastif
     async (
       request: FastifyRequest<{
         Querystring: { limit?: string };
-        Headers: { "x-tenant-id"?: string };
       }>,
       reply: FastifyReply,
     ) => {
-      const tenantId =
-        request.headers["x-tenant-id"] ||
-        process.env.DEFAULT_TENANT_ID ||
-        "a0000000-0000-0000-0000-000000000001";
+      const { tenantId } = tenantContext(request);
 
       const limit = Number(request.query.limit) || 50;
 

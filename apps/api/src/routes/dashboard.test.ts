@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { buildApp } from "../app.js";
+import { authHeaders, createAuthTestTenantRepo } from "../test-utils/auth.js";
 import { LeadRepository, type DashboardMetrics } from "@nexora/database";
 
 describe("Dashboard CRM Metrics API Integration (Etapa 5)", () => {
@@ -11,7 +12,7 @@ describe("Dashboard CRM Metrics API Integration (Etapa 5)", () => {
 
   beforeAll(async () => {
     leadRepo = new LeadRepository();
-    app = await buildApp({ leadRepo });
+    app = await buildApp({ leadRepo, tenantRepo: createAuthTestTenantRepo() });
     await app.ready();
   });
 
@@ -52,7 +53,7 @@ describe("Dashboard CRM Metrics API Integration (Etapa 5)", () => {
     const response = await app.inject({
       method: "GET",
       url: "/api/dashboard/metrics",
-      headers: { "x-tenant-id": testTenantId },
+      headers: authHeaders(app),
     });
 
     expect(response.statusCode).toBe(200);

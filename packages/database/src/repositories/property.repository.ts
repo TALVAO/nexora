@@ -1,7 +1,8 @@
 import { assertTenantContext, type TenantContext } from "../context.js";
+import { VocabularyRepository } from "./vocabulary.repository.js";
 import { query } from "../client.js";
 import type { PropertyRow } from "../types.js";
-import type { PropertyStatus } from "@nexora/shared";
+import type { AvailabilitySource, PropertyStatus } from "@nexora/shared";
 
 export interface CreatePropertyInput {
   externalId?: string | null;
@@ -18,6 +19,12 @@ export interface CreatePropertyInput {
   petsAllowed?: boolean | null;
   rentalGuarantees?: string[];
   status?: PropertyStatus;
+  /**
+   * Quem está afirmando a disponibilidade deste imóvel. Cadastrar/importar já
+   * é uma afirmação: o INSERT carimba `availability_verified_at = now()`
+   * (Etapa 15.1).
+   */
+  availabilitySource?: AvailabilitySource;
   url?: string | null;
   mainImageUrl?: string | null;
   metadata?: Record<string, unknown>;
@@ -36,6 +43,11 @@ export interface UpdatePropertyInput {
   parkingSpaces?: number | null;
   petsAllowed?: boolean | null;
   status?: PropertyStatus;
+  /**
+   * Só é usada quando `status` também vem no update — mudar o status É a
+   * verificação, e ela precisa dizer de onde veio (Etapa 15.1).
+   */
+  availabilitySource?: AvailabilitySource;
   url?: string | null;
   mainImageUrl?: string | null;
 }
@@ -68,6 +80,8 @@ export interface PropertyMatchRow {
 }
 
 export class PropertyRepository {
+  private vocabularyRepo = new VocabularyRepository();
+
   async create(ctx: TenantContext, input: CreatePropertyInput): Promise<PropertyRow> {
     assertTenantContext(ctx);
 
@@ -90,8 +104,19 @@ export class PropertyRepository {
         status,
         url,
         main_image_url,
-        metadata_json
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, COALESCE($15, 'AVAILABLE'), $16, $17, $18)
+        metadata_json,
+        availability_source,
+        availability_verified_at
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
+        COALESCE($15::property_status, 'AVAILABLE'), $16, $17, $18,
+        COALESCE($19::availability_source, 'MANUAL'),
+        -- Cadastrar ou importar um imóvel É a afirmação de disponibilidade
+        -- daquele instante. Por isso o carimbo nasce preenchido aqui, enquanto
+        -- as linhas antigas (migration 05) ficam NULL: ninguém sabe quando
+        -- foram conferidas, e inventar essa data violaria o §22.
+        now()
+      )
       RETURNING *;
     `;
 
@@ -114,11 +139,27 @@ export class PropertyRepository {
       input.url ?? null,
       input.mainImageUrl ?? null,
       JSON.stringify(input.metadata ?? {}),
+      input.availabilitySource ?? null,
     ];
 
     const result = await query<PropertyRow>(sql, params);
     const row = result.rows[0];
     if (!row) throw new Error("Falha ao cadastrar imóvel.");
+
+    // O catálogo do tenant ensina a geografia dele à extração da conversa.
+    // É isso que faz o bairro ser reconhecido em Recife ou Jundiaí sem que
+    // ninguém cadastre lista alguma (CLAUDE.md §10).
+    try {
+      await this.vocabularyRepo.registerFromProperty(ctx, {
+        city: row.city,
+        neighborhood: row.neighborhood,
+      });
+    } catch (err) {
+      // Falhar aqui não pode impedir o cadastro do imóvel, que é o dado
+      // principal. Mas o erro precisa aparecer.
+      console.error("[PropertyRepository] Falha ao registrar geografia do imóvel:", err);
+    }
+
     return row;
   }
 
@@ -266,6 +307,13 @@ export class PropertyRepository {
     if (input.status !== undefined) {
       fields.push(`status = $${index++}`);
       params.push(input.status);
+
+      // Quem mexe no status ESTÁ verificando a disponibilidade agora. Gravar o
+      // status sem o carimbo recriaria o problema que a Etapa 15.1 resolve:
+      // um "AVAILABLE" sem idade, que a IA trataria como verdade eterna.
+      fields.push(`availability_verified_at = now()`);
+      fields.push(`availability_source = COALESCE($${index++}::availability_source, 'MANUAL')`);
+      params.push(input.availabilitySource ?? null);
     }
     if (input.url !== undefined) {
       fields.push(`url = $${index++}`);

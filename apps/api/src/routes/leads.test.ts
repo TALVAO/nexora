@@ -1,11 +1,14 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { buildApp } from "../app.js";
+import { authHeaders, createAuthTestTenantRepo } from "../test-utils/auth.js";
 import { LeadRepository, type LeadRow, type Lead360View } from "@nexora/database";
+import { MessageGateway } from "@nexora/messaging";
 
 describe("CRM Leads API Integration (Etapa 5)", () => {
   let app: FastifyInstance;
   let leadRepo: LeadRepository;
+  let gateway: MessageGateway;
 
   const testTenantId = "a0000000-0000-0000-0000-000000000001";
   const testLeadId = "lead-test-555";
@@ -35,7 +38,8 @@ describe("CRM Leads API Integration (Etapa 5)", () => {
 
   beforeAll(async () => {
     leadRepo = new LeadRepository();
-    app = await buildApp({ leadRepo });
+    gateway = new MessageGateway();
+    app = await buildApp({ leadRepo, gateway, tenantRepo: createAuthTestTenantRepo() });
     await app.ready();
   });
 
@@ -53,7 +57,7 @@ describe("CRM Leads API Integration (Etapa 5)", () => {
       const response = await app.inject({
         method: "GET",
         url: "/api/leads?stage=QUALIFYING&temperature=WARM&automation_mode=AI",
-        headers: { "x-tenant-id": testTenantId },
+        headers: authHeaders(app),
       });
 
       expect(response.statusCode).toBe(200);
@@ -105,7 +109,7 @@ describe("CRM Leads API Integration (Etapa 5)", () => {
       const response = await app.inject({
         method: "GET",
         url: `/api/leads/${testLeadId}`,
-        headers: { "x-tenant-id": testTenantId },
+        headers: authHeaders(app),
       });
 
       expect(response.statusCode).toBe(200);
@@ -123,7 +127,44 @@ describe("CRM Leads API Integration (Etapa 5)", () => {
       const response = await app.inject({
         method: "GET",
         url: `/api/leads/non-existent`,
-        headers: { "x-tenant-id": testTenantId },
+        headers: authHeaders(app),
+      });
+
+      expect(response.statusCode).toBe(404);
+      const body = JSON.parse(response.payload);
+      expect(body.success).toBe(false);
+    });
+  });
+
+  describe("POST /api/leads/:id/assume (Human Takeover + Resumo)", () => {
+    it("should return lead, cancelledFollowups and summary on success", async () => {
+      gateway.assumeConversation = async () => ({
+        lead: { ...fakeLead, automation_mode: "HUMAN" },
+        cancelledFollowups: 2,
+        summary: "Lead quer alugar apartamento em Jundiaí.\nJá informou orçamento.\nFalta agendar visita.",
+      });
+
+      const response = await app.inject({
+        method: "POST",
+        url: `/api/leads/${testLeadId}/assume`,
+        headers: authHeaders(app),
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.payload);
+      expect(body.success).toBe(true);
+      expect(body.lead.automation_mode).toBe("HUMAN");
+      expect(body.cancelledFollowups).toBe(2);
+      expect(body.summary).toContain("Falta agendar visita.");
+    });
+
+    it("should return 404 if lead is not found", async () => {
+      gateway.assumeConversation = async () => null;
+
+      const response = await app.inject({
+        method: "POST",
+        url: `/api/leads/non-existent/assume`,
+        headers: authHeaders(app),
       });
 
       expect(response.statusCode).toBe(404);
@@ -142,7 +183,7 @@ describe("CRM Leads API Integration (Etapa 5)", () => {
       const response = await app.inject({
         method: "PATCH",
         url: `/api/leads/${testLeadId}`,
-        headers: { "x-tenant-id": testTenantId },
+        headers: authHeaders(app),
         payload: {
           automation_mode: "HUMAN",
         },
@@ -168,7 +209,7 @@ describe("CRM Leads API Integration (Etapa 5)", () => {
       const response = await app.inject({
         method: "PUT",
         url: `/api/leads/${testLeadId}/profile`,
-        headers: { "x-tenant-id": testTenantId },
+        headers: authHeaders(app),
         payload: updatedProfile,
       });
 
@@ -187,7 +228,7 @@ describe("CRM Leads API Integration (Etapa 5)", () => {
       const response = await app.inject({
         method: "POST",
         url: `/api/leads/${testLeadId}/activities`,
-        headers: { "x-tenant-id": testTenantId },
+        headers: authHeaders(app),
         payload: {
           activity_type: "NOTE",
           description: "Cliente ligou confirmando interesse em visitar sábado às 14h.",
@@ -211,7 +252,7 @@ describe("CRM Leads API Integration (Etapa 5)", () => {
       const response = await app.inject({
         method: "POST",
         url: `/api/leads/${testLeadId}/link-identity`,
-        headers: { "x-tenant-id": testTenantId },
+        headers: authHeaders(app),
         payload: {
           phone: "5511988887777",
         },
@@ -235,7 +276,7 @@ describe("CRM Leads API Integration (Etapa 5)", () => {
       const response = await app.inject({
         method: "POST",
         url: `/api/leads/${testLeadId}/merge`,
-        headers: { "x-tenant-id": testTenantId },
+        headers: authHeaders(app),
         payload: {
           sourceLeadId: "lead-source-999",
         },

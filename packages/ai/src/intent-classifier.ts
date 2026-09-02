@@ -1,8 +1,30 @@
 import type { IntentClassificationResult } from "./types.js";
+import {
+  normalizeTerm,
+  matchVocabularyTerm,
+  DEFAULT_PROPERTY_TYPES,
+  DEFAULT_RENTAL_GUARANTEES,
+  type TenantVocabulary,
+} from "@nexora/shared";
 
 export class IntentClassifier {
-  classify(text: string): IntentClassificationResult {
+  /**
+   * @param vocabulary Vocabulário do tenant. Sem ele vale o catálogo padrão do
+   *   mercado brasileiro.
+   *
+   *   O classificador precisa enxergar os MESMOS termos que o extrator: se a
+   *   imobiliária cadastra uma garantia própria e só o extrator souber disso,
+   *   a mensagem nunca é classificada como DOCUMENTATION.
+   */
+  classify(text: string, vocabulary?: TenantVocabulary): IntentClassificationResult {
     const raw = text.trim().toLowerCase();
+    const normalized = normalizeTerm(text);
+
+    const propertyTypes = vocabulary?.propertyTypes ?? DEFAULT_PROPERTY_TYPES;
+    const rentalGuarantees = vocabulary?.rentalGuarantees ?? DEFAULT_RENTAL_GUARANTEES;
+
+    const mentionsPropertyType = matchVocabularyTerm(normalized, propertyTypes) !== null;
+    const mentionsRentalGuarantee = matchVocabularyTerm(normalized, rentalGuarantees) !== null;
 
     // 1. STOP_MESSAGES / OPT-OUT (Highest safety priority)
     if (
@@ -89,9 +111,22 @@ export class IntentClassifier {
 
     // 7. SCHEDULE_VISIT
     if (
-      /\b(agendar visita|marcar visita|visitar|conhecer o imóvel|ir ver o apartamento|quando posso ver|visita amanhã|visita sábado)\b/i.test(
+      /\b(agendar visita|marcar visita|visitar|conhecer o imóvel|quando posso ver|visita amanhã)\b/i.test(
         raw,
-      )
+      ) ||
+      // Pedido de visita com dia marcado, em qualquer dia da semana. O regex
+      // anterior citava apenas "sabado", que era o plantao do primeiro cliente.
+      /\b(visita|visitar|ver)\s+(hoje|amanha|depois de amanha|segunda|terca|quarta|quinta|sexta|sabado|domingo)/i.test(
+        normalized,
+      ) ||
+      // "quero ver a casa" e agendamento; "quero ver a casa, qual o valor?" e
+      // pergunta sobre o imovel. Sem esta guarda a IA responde propondo
+      // horario e ignora a pergunta que o lead fez.
+      (/\b(ir ver|quero ver|posso ver|ver o|ver a)\b/i.test(raw) &&
+        mentionsPropertyType &&
+        !/\b(qual o valor|qual valor|quanto custa|quanto e|preco|condominio|iptu|metragem|area util)\b/i.test(
+          normalized,
+        ))
     ) {
       return {
         intent: "SCHEDULE_VISIT",
@@ -102,9 +137,8 @@ export class IntentClassifier {
 
     // 8. DOCUMENTATION / GARANTIA
     if (
-      /\b(documentos|documentação|comprovante de renda|fiador|caução|seguro fiança|garantia locatícia|credpago|depósito caução)\b/i.test(
-        raw,
-      )
+      /\b(documentos|documentação|comprovante de renda|garantia locatícia)\b/i.test(raw) ||
+      mentionsRentalGuarantee
     ) {
       return {
         intent: "DOCUMENTATION",
@@ -182,9 +216,10 @@ export class IntentClassifier {
 
     // 13. General search expressions ("lugar pra morar", "procurando imóvel", "casa", "apartamento")
     if (
-      /\b(lugar|morar|família|familia|quarto|quartos|dormitório|dormitórios|casa|apartamento|apto|kitnet|bairro|reais|mil|imóvel|imovel)\b/i.test(
+      /\b(lugar|morar|família|familia|quarto|quartos|dormitório|dormitórios|bairro|reais|mil|imóvel|imovel)\b/i.test(
         raw,
-      )
+      ) ||
+      mentionsPropertyType
     ) {
       return {
         intent: "RENTAL_SEARCH",

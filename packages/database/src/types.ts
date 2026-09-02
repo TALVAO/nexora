@@ -1,4 +1,4 @@
-import type { Stage, Role, Channel, AutomationMode } from "@nexora/shared";
+import type { Stage, Role, Channel, AutomationMode, AvailabilitySource } from "@nexora/shared";
 
 export type MemberStatus = "ACTIVE" | "INVITED" | "SUSPENDED";
 export type TemperatureType = "HOT" | "WARM" | "COLD";
@@ -19,6 +19,10 @@ export interface TenantRow {
   slug: string;
   status: string;
   timezone: string;
+  /** Janela (horas) em que a verificação de disponibilidade pode ser afirmada. */
+  availability_fresh_hours: number;
+  /** Prazo (horas) a partir do qual a verificação está vencida. */
+  availability_stale_hours: number;
   created_at: string;
   updated_at: string;
 }
@@ -169,6 +173,10 @@ export interface PropertyRow {
   pets_allowed: boolean | null;
   rental_guarantees_json: unknown[];
   status: PropertyStatus;
+  /** Origem da última afirmação de disponibilidade (migration 05). */
+  availability_source: AvailabilitySource;
+  /** Quando a disponibilidade foi afirmada. NULL = nunca verificada. */
+  availability_verified_at: string | null;
   url: string | null;
   main_image_url: string | null;
   metadata_json: Record<string, unknown>;

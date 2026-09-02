@@ -1,4 +1,5 @@
 import pg from "pg";
+import { AsyncLocalStorage } from "node:async_hooks";
 const { Pool } = pg;
 
 export interface DatabaseConfig {
@@ -40,12 +41,42 @@ export interface QueryResult<T = unknown> {
   rowCount: number | null;
 }
 
+/**
+ * Sessão de tenant ativa na requisição corrente.
+ *
+ * Toda consulta feita dentro dela roda na MESMA conexão, dentro da mesma
+ * transação, com `app.current_tenant_id` definido e privilégio rebaixado para
+ * a role de aplicação. É isso que faz o RLS valer: sem a mesma conexão, o
+ * `SET LOCAL` não alcança a query.
+ */
+export interface TenantSession {
+  client: pg.PoolClient;
+  tenantId: string;
+  /**
+   * Executados DEPOIS do COMMIT. Invalidar cache antes do commit abre janela
+   * para um leitor concorrente repovoá-lo com o estado antigo.
+   */
+  afterCommit: Array<() => void>;
+}
+
+const tenantSessionStorage = new AsyncLocalStorage<TenantSession>();
+
+export function getTenantSession(): TenantSession | undefined {
+  return tenantSessionStorage.getStore();
+}
+
+export function runInTenantSession<T>(session: TenantSession, fn: () => Promise<T>): Promise<T> {
+  return tenantSessionStorage.run(session, fn);
+}
+
 export async function query<T = unknown>(
   text: string,
   params?: unknown[],
   pool?: pg.Pool,
 ): Promise<QueryResult<T>> {
-  const p = pool || getDatabasePool();
+  // Preferência: pool explícito > conexão da sessão de tenant > pool global.
+  // Repositórios não precisam saber que estão dentro de uma transação.
+  const p = pool || tenantSessionStorage.getStore()?.client || getDatabasePool();
   const start = Date.now();
   try {
     const res = await p.query(text, params);

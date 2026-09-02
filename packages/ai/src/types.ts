@@ -1,3 +1,6 @@
+import type { TenantVocabulary } from "@nexora/shared";
+import type { AvailabilityAssessment } from "@nexora/domain";
+
 export type LeadIntent =
   | "GREETING"
   | "RENTAL_SEARCH"
@@ -58,6 +61,12 @@ export interface GeneratedResponse {
 }
 
 export interface AIExecutionContext {
+  /**
+   * Geografia e vocabulário do tenant. Sem ele, a extração não reconhece
+   * cidade nem bairro — comportamento correto, porque geografia é dado do
+   * cliente, não constante do domínio (CLAUDE.md §10).
+   */
+  vocabulary?: TenantVocabulary;
   tenantId: string;
   leadId: string;
   conversationId: string;
@@ -68,6 +77,12 @@ export interface AIExecutionContext {
   }>;
   currentProfile?: ExtractedLeadProfile;
   agencyName?: string;
+  /**
+   * Disponibilidade já avaliada dos imóveis em jogo nesta conversa
+   * (Etapa 15.1). Ausente = nada verificado, e a resposta não afirma
+   * disponibilidade nenhuma.
+   */
+  availability?: AvailabilityAssessment[];
 }
 
 export interface AIRunRecord {

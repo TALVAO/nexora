@@ -8,6 +8,11 @@ import type {
   NormalizedMessage,
   MessageType,
 } from "../types.js";
+import {
+  verifySharedToken,
+  type WebhookVerificationInput,
+  type WebhookVerificationResult,
+} from "../security/webhook-signature.js";
 
 export interface EvolutionConfig {
   apiUrl?: string;
@@ -293,5 +298,19 @@ export class EvolutionWhatsAppProvider implements MessagingProvider {
       status,
       timestamp: new Date().toISOString(),
     };
+  }
+
+  /** Nome da instância Evolution, que identifica a conexão do tenant. */
+  extractAccountId(payload: unknown): string | null {
+    const raw = payload as EvolutionWebhookPayload;
+    return raw?.instance?.trim() || null;
+  }
+
+  /**
+   * Evolution não assina webhook. A origem é provada por token compartilhado
+   * definido na conexão do canal.
+   */
+  verifyWebhookSignature(input: WebhookVerificationInput): WebhookVerificationResult {
+    return verifySharedToken(input);
   }
 }

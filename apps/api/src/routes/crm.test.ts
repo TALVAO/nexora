@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { buildApp } from "../app.js";
+import { authHeaders, createAuthTestTenantRepo } from "../test-utils/auth.js";
 import { LeadRepository, VisitRepository, type Lead360View, type VisitRow } from "@nexora/database";
 import { CRMSyncService } from "@nexora/crm";
 
@@ -69,6 +70,7 @@ describe("CRM API Routes Integration (Etapa 10)", () => {
     crmService = new CRMSyncService();
 
     app = await buildApp({
+      tenantRepo: createAuthTestTenantRepo(),
       leadRepo,
       visitRepo,
       crmService,
@@ -85,7 +87,7 @@ describe("CRM API Routes Integration (Etapa 10)", () => {
       const response = await app.inject({
         method: "GET",
         url: "/api/crm/config",
-        headers: { "x-tenant-id": testTenantId },
+        headers: authHeaders(app),
       });
 
       expect(response.statusCode).toBe(200);
@@ -100,7 +102,7 @@ describe("CRM API Routes Integration (Etapa 10)", () => {
       const response = await app.inject({
         method: "POST",
         url: "/api/crm/config",
-        headers: { "x-tenant-id": testTenantId },
+        headers: authHeaders(app),
         payload: {
           mode: "API",
           isEnabled: true,
@@ -131,7 +133,7 @@ describe("CRM API Routes Integration (Etapa 10)", () => {
       const response = await app.inject({
         method: "POST",
         url: `/api/crm/sync/lead/${testLeadId}`,
-        headers: { "x-tenant-id": testTenantId },
+        headers: authHeaders(app),
       });
 
       expect(response.statusCode).toBe(200);
@@ -154,7 +156,7 @@ describe("CRM API Routes Integration (Etapa 10)", () => {
       const response = await app.inject({
         method: "POST",
         url: `/api/crm/sync/visit/${testVisitId}`,
-        headers: { "x-tenant-id": testTenantId },
+        headers: authHeaders(app),
       });
 
       expect(response.statusCode).toBe(200);
@@ -171,7 +173,7 @@ describe("CRM API Routes Integration (Etapa 10)", () => {
       const response = await app.inject({
         method: "GET",
         url: "/api/crm/export/csv",
-        headers: { "x-tenant-id": testTenantId },
+        headers: authHeaders(app),
       });
 
       expect(response.statusCode).toBe(200);

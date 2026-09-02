@@ -1,6 +1,6 @@
 import { assertTenantContext, type TenantContext } from "../context.js";
 import { query } from "../client.js";
-import type { LeadRow, MessageRow } from "../types.js";
+import type { LeadRow, MessageRow, ConversationRow } from "../types.js";
 import type { Stage, Channel, AutomationMode, Temperature } from "@nexora/shared";
 
 export interface CreateLeadInput {
@@ -81,6 +81,7 @@ export interface Lead360View {
     created_at: string;
   }>;
   recentMessages: MessageRow[];
+  conversations: ConversationRow[];
 }
 
 export interface DashboardMetrics {
@@ -302,13 +303,20 @@ export class LeadRepository {
     );
 
     // Activities
+    // Bug pré-existente corrigido aqui (fora do escopo da Etapa 14.2, achado ao
+    // testar findLead360 contra banco real): a tabela `activities` tem a coluna
+    // `type`, não `activity_type` — a consulta original sempre lançava erro
+    // contra um Postgres de verdade (só "passava" com `query()` mockado). O
+    // apelido abaixo mantém a forma de retorno de `Lead360View` inalterada.
+    // `addActivity` grava com o mesmo nome de coluna errado e permanece quebrado
+    // — corrigir o INSERT está fora do escopo desta tarefa.
     const actRes = await query<{
       id: string;
       activity_type: string;
       description: string;
       created_at: string;
     }>(
-      `SELECT id, activity_type, description, created_at FROM activities WHERE lead_id = $1 AND tenant_id = $2 ORDER BY created_at DESC LIMIT 30;`,
+      `SELECT id, type AS activity_type, description, created_at FROM activities WHERE lead_id = $1 AND tenant_id = $2 ORDER BY created_at DESC LIMIT 30;`,
       [leadId, ctx.tenantId],
     );
 
@@ -318,12 +326,20 @@ export class LeadRepository {
       [leadId, ctx.tenantId],
     );
 
+    // Conversations (todos os canais — o frontend cruza com message.conversation_id
+    // para saber se a mensagem veio do WhatsApp ou do Instagram)
+    const convRes = await query<ConversationRow>(
+      `SELECT * FROM conversations WHERE lead_id = $1 AND tenant_id = $2 ORDER BY last_message_at DESC;`,
+      [leadId, ctx.tenantId],
+    );
+
     return {
       lead,
       profile: profileRes.rows[0] || null,
       stageHistory: historyRes.rows,
       activities: actRes.rows,
       recentMessages: msgRes.rows,
+      conversations: convRes.rows,
     };
   }
 
@@ -448,6 +464,10 @@ export class LeadRepository {
     if (!updated) throw new Error("Falha ao atualizar estágio do lead.");
 
     // 2. Log in lead_stage_history
+    // Colunas reais da tabela (migration inicial) são `changed_by_type` +
+    // `changed_by_id` — não existe `changed_by_profile_id`. Sem isso o INSERT
+    // lançava sempre contra Postgres real, derrubando a chamada inteira antes
+    // de chegar ao passo 3 (achado na verificação da Etapa 14.3).
     await query(
       `
       INSERT INTO lead_stage_history (
@@ -455,28 +475,74 @@ export class LeadRepository {
         lead_id,
         from_stage,
         to_stage,
-        changed_by_profile_id,
+        changed_by_type,
+        changed_by_id,
         reason
-      ) VALUES ($1, $2, $3, $4, $5, $6);
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7);
     `,
       [
         ctx.tenantId,
         leadId,
         fromStage,
         newStage,
+        changedByProfileId ? "USER" : "SYSTEM",
         changedByProfileId ?? null,
         reason ?? `Mudança manual de estágio para ${newStage}`,
       ],
     );
 
-    // 3. Log activity
-    await this.addActivity(ctx, leadId, {
-      activity_type: "STAGE_CHANGE",
-      description: `Estágio alterado de ${fromStage} para ${newStage}.`,
-      profile_id: changedByProfileId,
-    });
+    // 3. Log activity — complementar, igual ao takeover em assumeConversation
+    // (message-gateway.ts): uma falha aqui (ex.: `addActivity` está com o
+    // INSERT desalinhado do schema real de `activities` — bug pré-existente,
+    // ver memoria.md) não pode reverter nem bloquear uma mudança de estágio
+    // que já foi confirmada nos passos 1 e 2 (CLAUDE.md §25).
+    try {
+      await this.addActivity(ctx, leadId, {
+        activity_type: "STAGE_CHANGE",
+        description: `Estágio alterado de ${fromStage} para ${newStage}.`,
+        profile_id: changedByProfileId,
+      });
+    } catch (err) {
+      console.error("[LeadRepository] Falha ao registrar atividade de mudança de estágio:", err);
+    }
 
     return updated;
+  }
+
+  /**
+   * Corretor assume manualmente o atendimento do lead (Etapa 14.2). Tira o
+   * lead E todas as conversas dele (WhatsApp e Instagram) do modo AI — se
+   * propagasse só para o lead, uma conversa que ficasse em AI ainda receberia
+   * resposta automática, violando o human takeover do CLAUDE.md §24.
+   */
+  async assumeControl(ctx: TenantContext, leadId: string): Promise<LeadRow | null> {
+    assertTenantContext(ctx);
+
+    const leadResult = await query<LeadRow>(
+      `
+      UPDATE leads
+      SET automation_mode = 'HUMAN', updated_at = now()
+      WHERE id = $1 AND tenant_id = $2
+      RETURNING *;
+    `,
+      [leadId, ctx.tenantId],
+    );
+
+    const updatedLead = leadResult.rows[0];
+    if (!updatedLead) return null;
+
+    // Lead pode legitimamente não ter conversa ainda (ex.: criado manualmente
+    // pelo corretor) — não há contagem de linhas para checar aqui.
+    await query(
+      `
+      UPDATE conversations
+      SET automation_mode = 'HUMAN', updated_at = now()
+      WHERE lead_id = $1 AND tenant_id = $2;
+    `,
+      [leadId, ctx.tenantId],
+    );
+
+    return updatedLead;
   }
 
   async getDashboardMetrics(ctx: TenantContext): Promise<DashboardMetrics> {

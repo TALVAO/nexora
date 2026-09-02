@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { buildApp } from "../app.js";
+import { authHeaders, createAuthTestTenantRepo, signTestToken } from "../test-utils/auth.js";
 import { SaasRepository, TenantRepository } from "@nexora/database";
 import { PLAN_LIMITS } from "@nexora/shared";
 
@@ -15,7 +16,7 @@ describe("SaaS Commercial API Routes Integration (Etapa 12)", () => {
   beforeAll(async () => {
     saasRepo = new SaasRepository();
     tenantRepo = new TenantRepository();
-    app = await buildApp({ saasRepo, tenantRepo });
+    app = await buildApp({ saasRepo, tenantRepo: createAuthTestTenantRepo(tenantRepo) });
     await app.ready();
   });
 
@@ -74,6 +75,7 @@ describe("SaaS Commercial API Routes Integration (Etapa 12)", () => {
       const response = await app.inject({
         method: "POST",
         url: "/api/saas/onboarding",
+        headers: { authorization: `Bearer ${signTestToken(app)}` },
         payload: {
           companyName: "Imobiliária Inovação",
           slug: "imobiliaria-inovacao",
@@ -109,7 +111,7 @@ describe("SaaS Commercial API Routes Integration (Etapa 12)", () => {
       const response = await app.inject({
         method: "GET",
         url: "/api/saas/subscription",
-        headers: { "x-tenant-id": testTenantId },
+        headers: authHeaders(app),
       });
 
       expect(response.statusCode).toBe(200);
@@ -138,7 +140,7 @@ describe("SaaS Commercial API Routes Integration (Etapa 12)", () => {
       const response = await app.inject({
         method: "POST",
         url: "/api/saas/subscription/upgrade",
-        headers: { "x-tenant-id": testTenantId, "x-user-id": testOwnerId },
+        headers: authHeaders(app),
         payload: {
           plan: "BUSINESS",
         },
@@ -166,7 +168,7 @@ describe("SaaS Commercial API Routes Integration (Etapa 12)", () => {
       const response = await app.inject({
         method: "POST",
         url: "/api/saas/members/invite",
-        headers: { "x-tenant-id": testTenantId, "x-user-id": testOwnerId },
+        headers: authHeaders(app),
         payload: {
           name: "Fernanda Corretora",
           email: "fernanda@inovacao.com",
@@ -208,7 +210,7 @@ describe("SaaS Commercial API Routes Integration (Etapa 12)", () => {
       const response = await app.inject({
         method: "GET",
         url: "/api/saas/members",
-        headers: { "x-tenant-id": testTenantId },
+        headers: authHeaders(app),
       });
 
       expect(response.statusCode).toBe(200);
@@ -231,7 +233,7 @@ describe("SaaS Commercial API Routes Integration (Etapa 12)", () => {
       const response = await app.inject({
         method: "PATCH",
         url: "/api/saas/settings/branding",
-        headers: { "x-tenant-id": testTenantId, "x-user-id": testOwnerId },
+        headers: authHeaders(app),
         payload: {
           companyName: "Inovação Imobiliária Premium",
           toneOfVoice: "Elegante e prestativo",
@@ -264,7 +266,7 @@ describe("SaaS Commercial API Routes Integration (Etapa 12)", () => {
       const response = await app.inject({
         method: "GET",
         url: "/api/saas/audit-logs",
-        headers: { "x-tenant-id": testTenantId },
+        headers: authHeaders(app),
       });
 
       expect(response.statusCode).toBe(200);

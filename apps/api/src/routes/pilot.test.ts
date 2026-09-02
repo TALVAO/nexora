@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { buildApp } from "../app.js";
+import { authHeaders, createAuthTestTenantRepo } from "../test-utils/auth.js";
 import { PilotRepository } from "@nexora/database";
 
 describe("Pilot API Routes Integration (Etapa 11)", () => {
@@ -11,7 +12,7 @@ describe("Pilot API Routes Integration (Etapa 11)", () => {
 
   beforeAll(async () => {
     pilotRepo = new PilotRepository();
-    app = await buildApp({ pilotRepo });
+    app = await buildApp({ pilotRepo, tenantRepo: createAuthTestTenantRepo() });
     await app.ready();
   });
 
@@ -44,7 +45,7 @@ describe("Pilot API Routes Integration (Etapa 11)", () => {
       const response = await app.inject({
         method: "GET",
         url: "/api/pilot/metrics",
-        headers: { "x-tenant-id": testTenantId },
+        headers: authHeaders(app),
       });
 
       expect(response.statusCode).toBe(200);
@@ -65,7 +66,7 @@ describe("Pilot API Routes Integration (Etapa 11)", () => {
       const response = await app.inject({
         method: "POST",
         url: "/api/pilot/incidents",
-        headers: { "x-tenant-id": testTenantId },
+        headers: authHeaders(app),
         payload: {
           incidentType: "UNANSWERED_QUESTION",
           description: "Cliente perguntou se aceita fiador de outro estado",
@@ -99,7 +100,7 @@ describe("Pilot API Routes Integration (Etapa 11)", () => {
       const response = await app.inject({
         method: "GET",
         url: "/api/pilot/incidents",
-        headers: { "x-tenant-id": testTenantId },
+        headers: authHeaders(app),
       });
 
       expect(response.statusCode).toBe(200);

@@ -37,7 +37,10 @@ export class CsvPropertyImporter {
         externalId: row["external_id"] || row["code"] || null,
         title: row["title"],
         transactionType,
-        propertyType: row["property_type"] || "Apartamento",
+        // Sem a coluna, o tipo fica desconhecido. Assumir "Apartamento" elegia o
+        // tipo dominante do primeiro cliente e fazia o matcher pontuar sobre dado
+        // inventado (CLAUDE.md §22: sem informação -> null).
+        propertyType: row["property_type"] || null,
         city: row["city"],
         neighborhood: row["neighborhood"] || null,
         price: parseFloat(row["price"]) || 0,

@@ -7,6 +7,11 @@ import type {
   DeliveryStatus,
   NormalizedMessage,
 } from "../types.js";
+import {
+  verifySharedToken,
+  type WebhookVerificationInput,
+  type WebhookVerificationResult,
+} from "../security/webhook-signature.js";
 
 export class MockMessagingProvider implements MessagingProvider {
   public sentTexts: SendTextInput[] = [];
@@ -50,5 +55,15 @@ export class MockMessagingProvider implements MessagingProvider {
       status: "DELIVERED",
       timestamp: new Date().toISOString(),
     };
+  }
+
+  /** Nos testes a conta vem do próprio payload, como na Evolution. */
+  extractAccountId(payload: unknown): string | null {
+    const raw = payload as { instance?: string };
+    return raw?.instance?.trim() || "mock-instance";
+  }
+
+  verifyWebhookSignature(input: WebhookVerificationInput): WebhookVerificationResult {
+    return verifySharedToken(input);
   }
 }

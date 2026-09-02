@@ -1,20 +1,50 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from "fastify";
-import { PropertyRepository, LeadRepository, type CreatePropertyInput } from "@nexora/database";
-import { PropertyMatcher, CsvPropertyImporter } from "@nexora/messaging";
+import {
+  PropertyRepository,
+  LeadRepository,
+  TenantRepository,
+  type CreatePropertyInput,
+} from "@nexora/database";
+import { PropertyMatcher, CsvPropertyImporter, VrSyncPropertyImporter } from "@nexora/messaging";
+import { assessAvailability, type AvailabilityPolicy } from "@nexora/domain";
 import type { PropertyStatus } from "@nexora/shared";
+import { tenantContext } from "../plugins/auth.js";
 
 export interface PropertyPluginOptions {
   propertyRepo?: PropertyRepository;
   leadRepo?: LeadRepository;
+  tenantRepo?: TenantRepository;
   matcher?: PropertyMatcher;
   csvImporter?: CsvPropertyImporter;
+  vrsyncImporter?: VrSyncPropertyImporter;
 }
 
 export const propertyRoutes: FastifyPluginAsync<PropertyPluginOptions> = async (fastify, opts) => {
   const propertyRepo = opts?.propertyRepo || new PropertyRepository();
   const leadRepo = opts?.leadRepo || new LeadRepository();
+  const tenantRepo = opts?.tenantRepo || new TenantRepository();
   const matcher = opts?.matcher || new PropertyMatcher();
   const csvImporter = opts?.csvImporter || new CsvPropertyImporter();
+  const vrsyncImporter = opts?.vrsyncImporter || new VrSyncPropertyImporter();
+
+  /**
+   * Janela de validade da verificação de disponibilidade deste tenant. Se a
+   * leitura falhar, devolve `null` e o domínio cai no padrão conservador —
+   * degradar não pode virar "afirmar disponibilidade sem regra".
+   */
+  async function loadAvailabilityPolicy(tenantId: string): Promise<AvailabilityPolicy | null> {
+    try {
+      const tenant = await tenantRepo.findById(tenantId);
+      if (!tenant) return null;
+      return {
+        freshHours: tenant.availability_fresh_hours,
+        staleHours: tenant.availability_stale_hours,
+      };
+    } catch (err) {
+      fastify.log.error(err, "Falha ao ler a política de disponibilidade do tenant");
+      return null;
+    }
+  }
 
   // ----------------------------------------------------------------------------
   // Listar Propriedades com Filtros Determinísticos
@@ -37,14 +67,10 @@ export const propertyRoutes: FastifyPluginAsync<PropertyPluginOptions> = async (
           limit?: string;
           offset?: string;
         };
-        Headers: { "x-tenant-id"?: string };
       }>,
       reply: FastifyReply,
     ) => {
-      const tenantId =
-        request.headers["x-tenant-id"] ||
-        process.env.DEFAULT_TENANT_ID ||
-        "a0000000-0000-0000-0000-000000000001";
+      const { tenantId } = tenantContext(request);
 
       const { transactionType, propertyType, city, neighborhood, status, search } = request.query;
 
@@ -101,15 +127,11 @@ export const propertyRoutes: FastifyPluginAsync<PropertyPluginOptions> = async (
     async (
       request: FastifyRequest<{
         Params: { id: string };
-        Headers: { "x-tenant-id"?: string };
       }>,
       reply: FastifyReply,
     ) => {
       const { id } = request.params;
-      const tenantId =
-        request.headers["x-tenant-id"] ||
-        process.env.DEFAULT_TENANT_ID ||
-        "a0000000-0000-0000-0000-000000000001";
+      const { tenantId } = tenantContext(request);
 
       try {
         const property = await propertyRepo.findById({ tenantId }, id);
@@ -142,14 +164,10 @@ export const propertyRoutes: FastifyPluginAsync<PropertyPluginOptions> = async (
     async (
       request: FastifyRequest<{
         Body: CreatePropertyInput;
-        Headers: { "x-tenant-id"?: string };
       }>,
       reply: FastifyReply,
     ) => {
-      const tenantId =
-        request.headers["x-tenant-id"] ||
-        process.env.DEFAULT_TENANT_ID ||
-        "a0000000-0000-0000-0000-000000000001";
+      const { tenantId } = tenantContext(request);
 
       const { title, transactionType, city, price } = request.body;
       if (!title || !transactionType || !city || price === undefined) {
@@ -184,14 +202,10 @@ export const propertyRoutes: FastifyPluginAsync<PropertyPluginOptions> = async (
     async (
       request: FastifyRequest<{
         Body: { csvContent: string };
-        Headers: { "x-tenant-id"?: string };
       }>,
       reply: FastifyReply,
     ) => {
-      const tenantId =
-        request.headers["x-tenant-id"] ||
-        process.env.DEFAULT_TENANT_ID ||
-        "a0000000-0000-0000-0000-000000000001";
+      const { tenantId } = tenantContext(request);
 
       const { csvContent } = request.body;
       if (!csvContent) {
@@ -220,6 +234,63 @@ export const propertyRoutes: FastifyPluginAsync<PropertyPluginOptions> = async (
   );
 
   // ----------------------------------------------------------------------------
+  // Importação em Lote via VRSync (Etapa 15.2) — padrão XML oficial que toda
+  // imobiliária já gera para ZAP/VivaReal/OLX.
+  // ----------------------------------------------------------------------------
+  fastify.post(
+    "/api/properties/import-vrsync",
+    async (
+      request: FastifyRequest<{
+        Body: { xmlContent: string };
+      }>,
+      reply: FastifyReply,
+    ) => {
+      const { tenantId } = tenantContext(request);
+
+      const { xmlContent } = request.body;
+      if (!xmlContent) {
+        return reply.status(400).send({
+          success: false,
+          error: "Conteúdo do XML é obrigatório.",
+        });
+      }
+
+      // Parsear é um problema do ARQUIVO enviado (entrada do cliente), não do
+      // servidor: separado do bulkCreate para poder responder 400 em vez de
+      // 500 quando o XML está malformado ou não é VRSync.
+      let parsed: ReturnType<VrSyncPropertyImporter["parseXml"]>;
+      try {
+        parsed = vrsyncImporter.parseXml(xmlContent);
+      } catch (err: unknown) {
+        return reply.status(400).send({
+          success: false,
+          error: err instanceof Error ? err.message : "XML inválido.",
+        });
+      }
+
+      try {
+        const result = await propertyRepo.bulkCreate({ tenantId }, parsed.properties);
+
+        return reply.status(200).send({
+          success: true,
+          importedCount: result.inserted,
+          // Diferente do import-csv: listings incompletos do feed de terceiro
+          // são reportados, não só silenciosamente descartados — o corretor
+          // não escreveu esse XML à mão para adivinhar por que faltou imóvel.
+          skippedCount: parsed.skipped.length,
+          skipped: parsed.skipped,
+        });
+      } catch (err: unknown) {
+        request.log.error(err, "Erro ao importar catálogo VRSync");
+        return reply.status(500).send({
+          success: false,
+          error: err instanceof Error ? err.message : "Erro ao importar catálogo VRSync",
+        });
+      }
+    },
+  );
+
+  // ----------------------------------------------------------------------------
   // Atualizar Imóvel ou Alterar Status (Disponibilidade)
   // ----------------------------------------------------------------------------
   fastify.patch(
@@ -234,15 +305,11 @@ export const propertyRoutes: FastifyPluginAsync<PropertyPluginOptions> = async (
           condoFee?: number;
           bedrooms?: number;
         };
-        Headers: { "x-tenant-id"?: string };
       }>,
       reply: FastifyReply,
     ) => {
       const { id } = request.params;
-      const tenantId =
-        request.headers["x-tenant-id"] ||
-        process.env.DEFAULT_TENANT_ID ||
-        "a0000000-0000-0000-0000-000000000001";
+      const { tenantId } = tenantContext(request);
 
       try {
         const updated = await propertyRepo.update({ tenantId }, id, request.body);
@@ -276,16 +343,12 @@ export const propertyRoutes: FastifyPluginAsync<PropertyPluginOptions> = async (
       request: FastifyRequest<{
         Params: { id: string };
         Querystring: { minScore?: string };
-        Headers: { "x-tenant-id"?: string };
       }>,
       reply: FastifyReply,
     ) => {
       const { id: leadId } = request.params;
       const minScore = Number(request.query.minScore) || 50;
-      const tenantId =
-        request.headers["x-tenant-id"] ||
-        process.env.DEFAULT_TENANT_ID ||
-        "a0000000-0000-0000-0000-000000000001";
+      const { tenantId } = tenantContext(request);
 
       try {
         const lead360 = await leadRepo.findLead360({ tenantId }, leadId);
@@ -302,10 +365,29 @@ export const propertyRoutes: FastifyPluginAsync<PropertyPluginOptions> = async (
         // Executar matching determinístico
         const matches = matcher.findMatchesForProfile(lead360.profile, allProperties, minScore);
 
+        // Cada match volta com a procedência da disponibilidade (Etapa 15.1):
+        // o corretor precisa ver QUANDO aquilo foi verificado antes de o
+        // sistema prometer qualquer coisa ao lead. A janela é do tenant.
+        const policy = await loadAvailabilityPolicy(tenantId);
+        const matchesComProcedencia = matches.map((match) => ({
+          ...match,
+          availability: assessAvailability(
+            {
+              status: match.property.status,
+              verifiedAt: match.property.availability_verified_at,
+              source: match.property.availability_source,
+            },
+            policy,
+          ),
+        }));
+
         return reply.status(200).send({
           success: true,
-          matches,
-          totalMatches: matches.length,
+          matches: matchesComProcedencia,
+          totalMatches: matchesComProcedencia.length,
+          needsReconfirmation: matchesComProcedencia.filter(
+            (match) => match.availability.needsReconfirmation,
+          ).length,
         });
       } catch (err: unknown) {
         request.log.error(err, "Erro ao executar matching de imóveis");
@@ -326,16 +408,12 @@ export const propertyRoutes: FastifyPluginAsync<PropertyPluginOptions> = async (
       request: FastifyRequest<{
         Params: { id: string; propertyId: string };
         Body: { score?: number; reasons?: string[] };
-        Headers: { "x-tenant-id"?: string };
       }>,
       reply: FastifyReply,
     ) => {
       const { id: leadId, propertyId } = request.params;
       const { score = 80, reasons = ["Sugerido manualmente pelo corretor"] } = request.body || {};
-      const tenantId =
-        request.headers["x-tenant-id"] ||
-        process.env.DEFAULT_TENANT_ID ||
-        "a0000000-0000-0000-0000-000000000001";
+      const { tenantId } = tenantContext(request);
 
       try {
         const matchRecord = await propertyRepo.saveMatch(

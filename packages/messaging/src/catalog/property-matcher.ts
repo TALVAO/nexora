@@ -1,4 +1,5 @@
 import type { PropertyRow, LeadProfileData } from "@nexora/database";
+import { propertyTypesMatch } from "@nexora/shared";
 
 export interface MatchEvaluationResult {
   property: PropertyRow;
@@ -139,11 +140,13 @@ export class PropertyMatcher {
     }
 
     // Tipo de Imóvel (+10 pontos)
+    //
+    // Comparação por conjunto de palavras normalizadas. Substring mútua casava
+    // por acidente e quebrava em acento; igualdade estrita derrubava
+    // "Studio" contra "Kitnet/Studio" — que é o mesmo imóvel escrito de dois
+    // jeitos, situação normal em catálogo importado de CRM alheio.
     if (profile.property_type && property.property_type) {
-      if (
-        property.property_type.toLowerCase().includes(profile.property_type.toLowerCase()) ||
-        profile.property_type.toLowerCase().includes(property.property_type.toLowerCase())
-      ) {
+      if (propertyTypesMatch(property.property_type, profile.property_type)) {
         score += 10;
         reasons.push(`Tipo de imóvel compatível: ${property.property_type}`);
       }
